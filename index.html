@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>Esperanza · Macrociclo 1</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏋️</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
@@ -62,7 +63,6 @@
   }
   .card.done{ background: var(--done); border-color: #3d4a2c; }
 
-  .card-top{ display:flex; align-items:flex-start; gap:10px; }
   .thumb{
     flex: 0 0 auto; width: 76px; height: 76px; border-radius: 14px; overflow:hidden;
     background: #17181a; border:1px solid var(--line); display:flex; align-items:center; justify-content:center;
@@ -89,29 +89,64 @@
 
   @media (max-width: 480px) {
     .card{ padding: 14px 12px; }
-    .card-top{ gap: 12px; align-items: center; }
+    .ex-card{ padding: 0; }
     .thumb{ width: 84px; height: 84px; border-radius: 16px; }
     .thumb svg{ width: 38px; height: 38px; }
     .check{ width: 30px; height: 30px; border-radius: 9px; }
     .ex-name{ font-size: 16px; }
     .video-btn{ padding: 10px 12px; font-size: 14px; }
-    .warm-card .thumb{ width: 64px; height: 64px; }
-    .warm-card .video-btn{ padding: 8px 10px; }
   }
   .card.done .ex-name{ color: var(--ink-dim); text-decoration: line-through; text-decoration-color: var(--volt-dim); }
 
-  .stats{ display:flex; flex-wrap:wrap; gap: 6px 8px; margin-top: 9px; }
+  .stats{ display:flex; flex-wrap:wrap; gap: 6px 8px; margin-top: 9px; align-items:center; }
   .stat{ background: #17181a; border:1px solid var(--line); border-radius: 7px; padding: 4px 8px; font-size: 12px; font-weight:600; color: var(--ink); }
   .stat b{ color: var(--ink-dim); font-weight:600; margin-right:3px; }
 
-  .kg-row{ display:flex; align-items:center; gap:8px; margin-top:9px; }
-  .kg-row label{ font-size:11.5px; color:var(--ink-dim); font-weight:700; white-space:nowrap; }
   .kg-input{
     flex:1; background:#17181a; border:1.5px solid var(--line); border-radius:8px; color:var(--ink);
     font-size:14px; font-weight:700; padding:7px 8px; width: 100%; font-family:'Inter',sans-serif;
   }
   .kg-input:focus{ outline:none; border-color: var(--volt); }
-  .kg-suffix{ font-size:12px; color:var(--ink-dim); font-weight:700; }
+
+  .ex-card{ padding:0; overflow:hidden; }
+  .ex-photo-wrap{ position:relative; }
+  .ex-photo{
+    display:block; width:100%; border:0; padding:0; margin:0; background:transparent; cursor:pointer;
+  }
+  .ex-photo-frame{ width:100%; aspect-ratio:4/3; overflow:hidden; background:#17181a; display:flex; align-items:center; justify-content:center; }
+  .ex-photo-frame img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .ex-photo-frame svg{ width:56px; height:56px; color: var(--volt-dim); }
+  .ex-card.done .ex-photo-frame{ filter: grayscale(.55) brightness(.5); }
+
+  .check-overlay{
+    position:absolute; top:10px; right:10px; margin-top:0; z-index:2;
+    background: rgba(23,24,26,.45); border-color: rgba(242,241,236,.55);
+  }
+  .ex-play-hint{
+    position:absolute; bottom:10px; left:10px; width:34px; height:34px; border-radius:50%;
+    background: rgba(20,21,15,.55); display:flex; align-items:center; justify-content:center; pointer-events:none;
+  }
+  .ex-play-hint svg{ width:16px; height:16px; color: var(--volt); }
+
+  .ex-done-badge{
+    position:absolute; inset:0; display:none; align-items:center; justify-content:center; pointer-events:none;
+  }
+  .ex-card.done .ex-done-badge{ display:flex; }
+  .ex-done-badge span{ width:56px; height:56px; border-radius:50%; background: var(--volt); display:flex; align-items:center; justify-content:center; }
+  .ex-done-badge svg{ width:28px; height:28px; }
+
+  .ex-body{ padding:12px 14px; }
+
+  .kg-chip{
+    display:flex; align-items:center; gap:5px; background:#17181a; border:1.5px solid var(--volt);
+    border-radius:7px; padding:3px 6px 3px 8px;
+  }
+  .kg-chip label{ font-size:10px; color: var(--volt); font-weight:700; }
+  .kg-mini{
+    width:32px; background:transparent; border:0; color:var(--ink); font-size:13px; font-weight:700;
+    font-family:'Inter',sans-serif; padding:2px 0; text-align:center;
+  }
+  .kg-mini:focus{ outline:none; }
 
   .video-btn{
     display:flex; align-items:center; justify-content:center; gap:6px;
@@ -121,12 +156,6 @@
   }
   .video-btn:active{ background: var(--volt); color:#14150f; }
   .video-btn svg{ width:15px; height:15px; }
-
-  .warm-card{ display:flex; align-items:center; gap:10px; padding:10px 12px; }
-  .warm-card .thumb{ width:44px; height:44px; }
-  .warm-card .ex-name{ font-size:14px; }
-  .warm-card .video-btn{ margin-top:0; padding:6px 8px; flex:0 0 auto; }
-  .warm-card .video-btn span{ display:none; }
 
   .cardio-row{ display:flex; gap:8px; margin-top:9px; }
   .cardio-field{ flex:1; }
@@ -464,13 +493,19 @@ function warmCard(day, ex, idx, doneMap){
   const key = `${day}-warm-${idx}`;
   const isDone = !!doneMap[`warm-${idx}`];
   return `
-    <div class="card warm-card ${isDone?'done':''}" data-key="${key}">
-      <div class="check">${checkIcon()}</div>
-      <button class="thumb-btn" type="button" data-name="${escapeAttr(ex.name)}" data-video="${escapeAttr(ex.video)}" data-series="${escapeAttr(ex.series)}" data-rep="${escapeAttr(ex.rep)}" data-recp="${escapeAttr(ex.recp || '')}" data-icon="${escapeAttr(ex.icon || '')}" data-photo="${escapeAttr(ex.photo || '')}" aria-label="Ver detalle de ${escapeAttr(ex.name)}">
-        <div class="thumb">${thumbHtml(ex)}</div>
-      </button>
-      <div class="ex-name">${ex.name} <span style="color:var(--ink-dim); font-weight:500;">· ${ex.series}x${ex.rep}</span></div>
-      <a class="video-btn" href="${ex.video}" target="_blank" rel="noopener">${playIcon()}<span>Ver</span></a>
+    <div class="card ex-card ${isDone?'done':''}" data-key="${key}">
+      <div class="ex-photo-wrap">
+        <button class="thumb-btn ex-photo" type="button" data-name="${escapeAttr(ex.name)}" data-video="${escapeAttr(ex.video)}" data-series="${escapeAttr(ex.series)}" data-rep="${escapeAttr(ex.rep)}" data-recp="${escapeAttr(ex.recp || '')}" data-icon="${escapeAttr(ex.icon || '')}" data-photo="${escapeAttr(ex.photo || '')}" aria-label="Ver detalle de ${escapeAttr(ex.name)}">
+          <div class="ex-photo-frame">${thumbHtml(ex)}</div>
+          <span class="ex-play-hint">${playIcon()}</span>
+        </button>
+        <div class="check check-overlay">${checkIcon()}</div>
+        <div class="ex-done-badge"><span>${checkIcon()}</span></div>
+      </div>
+      <div class="ex-body">
+        <div class="ex-name">${ex.name} <span style="color:var(--ink-dim); font-weight:500;">· ${ex.series}x${ex.rep}</span></div>
+        <a class="video-btn" href="${ex.video}" target="_blank" rel="noopener">${playIcon()}<span>Ver vídeo</span></a>
+      </div>
     </div>`;
 }
 
@@ -478,27 +513,39 @@ function strengthCard(day, ex, idx, kgValue, doneMap){
   const key = `${day}-strength-${idx}`;
   const isDone = !!doneMap[`strength-${idx}`];
   return `
-    <div class="card ${isDone?'done':''}" data-key="${key}">
-      <div class="card-top">
-        <div class="check">${checkIcon()}</div>
-        <button class="thumb-btn" type="button" data-name="${escapeAttr(ex.name)}" data-video="${escapeAttr(ex.video)}" data-series="${escapeAttr(ex.series)}" data-rep="${escapeAttr(ex.rep)}" data-recp="${escapeAttr(ex.recp || '')}" data-icon="${escapeAttr(ex.icon || '')}" data-photo="${escapeAttr(ex.photo || '')}" aria-label="Ver detalle de ${escapeAttr(ex.name)}">
-          <div class="thumb">${thumbHtml(ex)}</div>
+    <div class="card ex-card ${isDone?'done':''}" data-key="${key}">
+      <div class="ex-photo-wrap">
+        <button class="thumb-btn ex-photo" type="button" data-name="${escapeAttr(ex.name)}" data-video="${escapeAttr(ex.video)}" data-series="${escapeAttr(ex.series)}" data-rep="${escapeAttr(ex.rep)}" data-recp="${escapeAttr(ex.recp || '')}" data-icon="${escapeAttr(ex.icon || '')}" data-photo="${escapeAttr(ex.photo || '')}" aria-label="Ver detalle de ${escapeAttr(ex.name)}">
+          <div class="ex-photo-frame">${thumbHtml(ex)}</div>
+          <span class="ex-play-hint">${playIcon()}</span>
         </button>
+        <div class="check check-overlay">${checkIcon()}</div>
+        <div class="ex-done-badge"><span>${checkIcon()}</span></div>
+      </div>
+      <div class="ex-body">
         <div class="ex-name">${ex.name}</div>
+        <div class="stats">
+          <div class="stat"><b>Series</b>${ex.series}</div>
+          <div class="stat"><b>Reps</b>${ex.rep}</div>
+          <div class="stat"><b>Descanso</b>${ex.recp}</div>
+          <div class="stat"><b>Int.</b>${ex.int}</div>
+          <div class="kg-chip">
+            <label>Kg</label>
+            <input class="kg-mini" type="number" inputmode="decimal" min="0" step="0.5" placeholder="0" value="${kgValue||''}" data-kg-idx="${idx}">
+          </div>
+        </div>
+        <a class="video-btn" href="${ex.video}" target="_blank" rel="noopener">${playIcon()}<span>Ver vídeo</span></a>
       </div>
-      <div class="stats">
-        <div class="stat"><b>Series</b>${ex.series}</div>
-        <div class="stat"><b>Reps</b>${ex.rep}</div>
-        <div class="stat"><b>Descanso</b>${ex.recp}</div>
-        <div class="stat"><b>Int.</b>${ex.int}</div>
-      </div>
-      <div class="kg-row">
-        <label>Kg hoy</label>
-        <input class="kg-input" type="number" inputmode="decimal" min="0" step="0.5" placeholder="0" value="${kgValue||''}" data-kg-idx="${idx}">
-        <span class="kg-suffix">kg</span>
-      </div>
-      <a class="video-btn" href="${ex.video}" target="_blank" rel="noopener">${playIcon()}<span>Ver vídeo</span></a>
     </div>`;
+}
+
+function pendingFirst(list, prefix, doneMap){
+  return list.map((_,i)=>i).sort((a,b)=>{
+    const da = !!doneMap[`${prefix}-${a}`];
+    const db = !!doneMap[`${prefix}-${b}`];
+    if(da === db) return a-b;
+    return da ? 1 : -1;
+  });
 }
 
 function cardioCard(day, cardio){
@@ -545,10 +592,10 @@ async function renderMain(){
     ${!sb ? `<div class="storage-note">${hasLocalStorage ? 'Aún no está conectado a Supabase: los kg, el cardio y los check se están guardando solo en este navegador (no viajarán a otro dispositivo) hasta que rellenes SUPABASE_URL y SUPABASE_ANON_KEY en el archivo.' : 'Este navegador no permite guardar datos, así que los kg, el cardio y los check de hoy no se guardarán al cerrar la página.'}</div>` : ''}
 
     <div class="section-label warm">Calentamiento</div>
-    ${d.warmup.map((ex,i)=>warmCard(day, ex, i, doneMap)).join('')}
+    ${pendingFirst(d.warmup, 'warm', doneMap).map(i=>warmCard(day, d.warmup[i], i, doneMap)).join('')}
 
     <div class="section-label strength">Entrenamiento de fuerza</div>
-    ${d.strength.map((ex,i)=>strengthCard(day, ex, i, log.weights[i], doneMap)).join('')}
+    ${pendingFirst(d.strength, 'strength', doneMap).map(i=>strengthCard(day, d.strength[i], i, log.weights[i], doneMap)).join('')}
 
     <div class="section-label cardio">Cardio</div>
     ${cardioCard(day, log.cardio)}
