@@ -64,14 +64,21 @@
 
   .card-top{ display:flex; align-items:flex-start; gap:10px; }
   .thumb{
-    flex: 0 0 auto; width: 52px; height: 52px; border-radius: 10px; overflow:hidden;
+    flex: 0 0 auto; width: 76px; height: 76px; border-radius: 14px; overflow:hidden;
     background: #17181a; border:1px solid var(--line); display:flex; align-items:center; justify-content:center;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
   }
   .thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
-  .thumb svg{ width:30px; height:30px; color: var(--volt-dim); }
+  .thumb svg{ width:34px; height:34px; color: var(--volt-dim); }
+
+  .thumb-btn{
+    border:0; padding:0; background:transparent; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .thumb-btn:focus-visible{ outline:2px solid var(--volt); outline-offset:3px; border-radius:16px; }
 
   .check{
-    flex: 0 0 auto; width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--line);
+    flex: 0 0 auto; width: 28px; height: 28px; border-radius: 8px; border: 2px solid var(--line);
     display:flex; align-items:center; justify-content:center; margin-top:1px; cursor:pointer;
   }
   .card.done .check{ background: var(--volt); border-color: var(--volt); }
@@ -79,6 +86,18 @@
   .card.done .check svg{ display:block; }
 
   .ex-name{ font-weight:700; font-size:15px; line-height:1.25; flex:1; }
+
+  @media (max-width: 480px) {
+    .card{ padding: 14px 12px; }
+    .card-top{ gap: 12px; align-items: center; }
+    .thumb{ width: 84px; height: 84px; border-radius: 16px; }
+    .thumb svg{ width: 38px; height: 38px; }
+    .check{ width: 30px; height: 30px; border-radius: 9px; }
+    .ex-name{ font-size: 16px; }
+    .video-btn{ padding: 10px 12px; font-size: 14px; }
+    .warm-card .thumb{ width: 64px; height: 64px; }
+    .warm-card .video-btn{ padding: 8px 10px; }
+  }
   .card.done .ex-name{ color: var(--ink-dim); text-decoration: line-through; text-decoration-color: var(--volt-dim); }
 
   .stats{ display:flex; flex-wrap:wrap; gap: 6px 8px; margin-top: 9px; }
@@ -126,6 +145,30 @@
   footer{ text-align:center; color: var(--ink-dim); font-size: 11px; margin-top: 26px; padding: 0 16px; }
   footer b{ color: var(--volt); }
   .storage-note{ background:#2b2410; border:1px solid #4a3d1a; color:#e8cf7a; font-size:11.5px; border-radius:10px; padding:8px 10px; margin: 10px 2px; }
+
+  .preview-modal{
+    position: fixed; inset: 0; z-index: 60; display:flex; align-items:center; justify-content:center;
+    padding: 18px; background: rgba(7, 8, 10, 0.82); backdrop-filter: blur(6px);
+    opacity:0; pointer-events:none; transition: opacity .2s ease;
+  }
+  .preview-modal.active{ opacity:1; pointer-events:auto; }
+  .preview-panel{
+    width:min(92vw, 430px); background:var(--card); border:1px solid var(--card-border);
+    border-radius: 20px; padding: 16px; box-shadow: 0 20px 44px rgba(0,0,0,0.35);
+  }
+  .preview-header{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
+  .preview-title{ font-weight:800; font-size:16px; line-height:1.2; }
+  .preview-close{ border:0; background:transparent; color:var(--ink-dim); font-size:22px; line-height:1; cursor:pointer; }
+  .preview-media{ border-radius:14px; overflow:hidden; background:#17181a; border:1px solid var(--line); min-height:220px; display:flex; align-items:center; justify-content:center; }
+  .preview-media img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .preview-media svg{ width:72px; height:72px; color:var(--volt-dim); }
+  .preview-meta{ margin-top:10px; color:var(--ink-dim); font-size:13px; }
+  .preview-actions{ display:flex; gap:8px; margin-top:12px; }
+  .preview-btn{
+    flex:1; border:0; border-radius:10px; padding:10px 12px; font-weight:700; font-size:13px;
+    background: var(--volt); color:#14150f; text-decoration:none; text-align:center;
+  }
+  .preview-btn.secondary{ background: transparent; color: var(--volt); border:1.5px solid var(--volt); }
 </style>
 </head>
 <body>
@@ -137,6 +180,21 @@
 </div>
 
 <main id="main"></main>
+
+<div class="preview-modal" id="preview-modal" aria-hidden="true">
+  <div class="preview-panel" role="dialog" aria-modal="true" aria-label="Vista previa del ejercicio">
+    <div class="preview-header">
+      <div class="preview-title" id="preview-title">Ejercicio</div>
+      <button class="preview-close" type="button" id="preview-close" aria-label="Cerrar vista previa">×</button>
+    </div>
+    <div class="preview-media" id="preview-media"></div>
+    <div class="preview-meta" id="preview-meta"></div>
+    <div class="preview-actions">
+      <a class="preview-btn secondary" id="preview-open" href="#" target="_blank" rel="noopener">Abrir vídeo</a>
+      <button class="preview-btn" type="button" id="preview-close-btn">Cerrar</button>
+    </div>
+  </div>
+</div>
 
 <footer>Toca <b>▢</b> para marcar un ejercicio hecho. Los kg y el cardio se guardan por día y quedan en <b>Historial</b>.</footer>
 
@@ -179,6 +237,9 @@ function thumbHtml(ex){
     return `<img src="https://img.youtube.com/vi/${id}/hqdefault.jpg" alt="${ex.name}" loading="lazy">`;
   }
   return ICONX[ex.icon] || ICONX.squat;
+}
+function escapeAttr(value){
+  return String(value || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 const DATA = {
@@ -341,6 +402,40 @@ async function listAllLogs(){
 
 const tabsEl = document.getElementById('tabs');
 const mainEl = document.getElementById('main');
+const previewModal = document.getElementById('preview-modal');
+const previewTitleEl = document.getElementById('preview-title');
+const previewMediaEl = document.getElementById('preview-media');
+const previewMetaEl = document.getElementById('preview-meta');
+const previewOpenEl = document.getElementById('preview-open');
+const previewCloseEl = document.getElementById('preview-close');
+const previewCloseBtnEl = document.getElementById('preview-close-btn');
+
+function openPreview(ex){
+  previewTitleEl.textContent = ex.name;
+  previewMetaEl.textContent = `${ex.series || ''}x${ex.rep || ''}${ex.recp ? ' · ' + ex.recp : ''}`.trim();
+  previewOpenEl.href = ex.video || '#';
+  previewOpenEl.style.display = ex.video ? 'inline-flex' : 'none';
+
+  const id = ytId(ex.video || '');
+  if(id){
+    previewMediaEl.innerHTML = `<img src="https://img.youtube.com/vi/${id}/mqdefault.jpg" alt="${escapeAttr(ex.name)}" loading="eager">`;
+  } else {
+    previewMediaEl.innerHTML = `<div class="thumb">${ICONX[ex.icon] || ICONX.squat}</div>`;
+  }
+
+  previewModal.classList.add('active');
+  previewModal.setAttribute('aria-hidden','false');
+}
+
+function closePreview(){
+  previewModal.classList.remove('active');
+  previewModal.setAttribute('aria-hidden','true');
+}
+
+previewModal.addEventListener('click', (e)=>{ if(e.target === previewModal) closePreview(); });
+previewCloseEl.addEventListener('click', closePreview);
+previewCloseBtnEl.addEventListener('click', closePreview);
+document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && previewModal.classList.contains('active')) closePreview(); });
 
 function checkIcon(){ return '<svg viewBox="0 0 24 24" fill="none"><path d="M4 12.5L9.5 18L20 6" stroke="#14150f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
 function playIcon(){ return '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'; }
@@ -362,7 +457,9 @@ function warmCard(day, ex, idx){
   return `
     <div class="card warm-card ${isDone?'done':''}" data-key="${key}">
       <div class="check">${checkIcon()}</div>
-      <div class="thumb">${thumbHtml(ex)}</div>
+      <button class="thumb-btn" type="button" data-name="${escapeAttr(ex.name)}" data-video="${escapeAttr(ex.video)}" data-series="${escapeAttr(ex.series)}" data-rep="${escapeAttr(ex.rep)}" data-recp="${escapeAttr(ex.recp || '')}" data-icon="${escapeAttr(ex.icon || '')}" aria-label="Ver detalle de ${escapeAttr(ex.name)}">
+        <div class="thumb">${thumbHtml(ex)}</div>
+      </button>
       <div class="ex-name">${ex.name} <span style="color:var(--ink-dim); font-weight:500;">· ${ex.series}x${ex.rep}</span></div>
       <a class="video-btn" href="${ex.video}" target="_blank" rel="noopener">${playIcon()}<span>Ver</span></a>
     </div>`;
@@ -375,7 +472,9 @@ function strengthCard(day, ex, idx, kgValue){
     <div class="card ${isDone?'done':''}" data-key="${key}">
       <div class="card-top">
         <div class="check">${checkIcon()}</div>
-        <div class="thumb">${thumbHtml(ex)}</div>
+        <button class="thumb-btn" type="button" data-name="${escapeAttr(ex.name)}" data-video="${escapeAttr(ex.video)}" data-series="${escapeAttr(ex.series)}" data-rep="${escapeAttr(ex.rep)}" data-recp="${escapeAttr(ex.recp || '')}" data-icon="${escapeAttr(ex.icon || '')}" aria-label="Ver detalle de ${escapeAttr(ex.name)}">
+          <div class="thumb">${thumbHtml(ex)}</div>
+        </button>
         <div class="ex-name">${ex.name}</div>
       </div>
       <div class="stats">
@@ -451,6 +550,19 @@ async function renderMain(){
       const key = card.dataset.key;
       doneState[key] = !doneState[key];
       renderMain();
+    });
+  });
+
+  mainEl.querySelectorAll('.thumb-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      openPreview({
+        name: btn.dataset.name,
+        video: btn.dataset.video,
+        series: btn.dataset.series,
+        rep: btn.dataset.rep,
+        recp: btn.dataset.recp,
+        icon: btn.dataset.icon
+      });
     });
   });
 
