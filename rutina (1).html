@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Esperanza · Macrociclo 1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --bg: #17181a;
+    --card: #212226;
+    --card-border: #2d2e33;
+    --ink: #f2f1ec;
+    --ink-dim: #9b9ba3;
+    --volt: #d4ff3d;
+    --volt-dim: #9db82b;
+    --teal: #33d9c4;
+    --line: #35363b;
+    --done: #2a3320;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+  html,body{ margin:0; padding:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; }
+  body{ padding-bottom: 48px; }
+
+  .topbar{
+    position: sticky; top:0; z-index: 20;
+    background: linear-gradient(180deg, var(--bg) 85%, transparent);
+    padding: 14px 16px 6px;
+  }
+  .title{ font-family:'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 0.5px; color: var(--ink); line-height: 1; }
+  .title span{ color: var(--volt); }
+  .subtitle{ color: var(--ink-dim); font-size: 12px; margin-top: 2px; font-weight:500; }
+
+  .tabs{ display:grid; grid-template-columns: repeat(5,1fr); gap:6px; margin-top: 12px; }
+  .tab{
+    background: var(--card); border:1px solid var(--card-border); color: var(--ink-dim);
+    border-radius: 10px; padding: 8px 2px; text-align:center; font-weight:700; font-size: 11.5px;
+    cursor:pointer; transition: all .15s ease; user-select:none;
+  }
+  .tab small{ display:block; font-weight:500; font-size:8.7px; margin-top:1px; letter-spacing:.2px; }
+  .tab.active{ background: var(--volt); color:#14150f; border-color: var(--volt); }
+
+  main{ padding: 10px 16px 0; max-width: 640px; margin:0 auto; }
+
+  .day-head{ display:flex; align-items:baseline; justify-content:space-between; margin: 14px 2px 8px; }
+  .day-head h2{ font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:.3px; margin:0; }
+  .progress{ font-size:12px; color: var(--ink-dim); font-weight:600; }
+
+  .section-label{
+    display:flex; align-items:center; gap:8px; margin: 18px 2px 8px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-weight:700; color: var(--ink-dim);
+  }
+  .section-label.warm::before{ content:''; width:8px; height:8px; border-radius:50%; background: var(--teal); display:inline-block; }
+  .section-label.strength::before{ content:''; width:8px; height:8px; border-radius:50%; background: var(--volt); display:inline-block; }
+  .section-label.cardio::before{ content:''; width:8px; height:8px; border-radius:50%; background: #ffb547; display:inline-block; }
+
+  .card{
+    background: var(--card); border:1px solid var(--card-border); border-radius: 14px;
+    padding: 12px 14px; margin-bottom: 10px; transition: background .2s ease, border-color .2s ease;
+  }
+  .card.done{ background: var(--done); border-color: #3d4a2c; }
+
+  .card-top{ display:flex; align-items:flex-start; gap:10px; }
+  .thumb{
+    flex: 0 0 auto; width: 52px; height: 52px; border-radius: 10px; overflow:hidden;
+    background: #17181a; border:1px solid var(--line); display:flex; align-items:center; justify-content:center;
+  }
+  .thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .thumb svg{ width:30px; height:30px; color: var(--volt-dim); }
+
+  .check{
+    flex: 0 0 auto; width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--line);
+    display:flex; align-items:center; justify-content:center; margin-top:1px; cursor:pointer;
+  }
+  .card.done .check{ background: var(--volt); border-color: var(--volt); }
+  .check svg{ display:none; width:13px; height:13px; }
+  .card.done .check svg{ display:block; }
+
+  .ex-name{ font-weight:700; font-size:15px; line-height:1.25; flex:1; }
+  .card.done .ex-name{ color: var(--ink-dim); text-decoration: line-through; text-decoration-color: var(--volt-dim); }
+
+  .stats{ display:flex; flex-wrap:wrap; gap: 6px 8px; margin-top: 9px; }
+  .stat{ background: #17181a; border:1px solid var(--line); border-radius: 7px; padding: 4px 8px; font-size: 12px; font-weight:600; color: var(--ink); }
+  .stat b{ color: var(--ink-dim); font-weight:600; margin-right:3px; }
+
+  .kg-row{ display:flex; align-items:center; gap:8px; margin-top:9px; }
+  .kg-row label{ font-size:11.5px; color:var(--ink-dim); font-weight:700; white-space:nowrap; }
+  .kg-input{
+    flex:1; background:#17181a; border:1.5px solid var(--line); border-radius:8px; color:var(--ink);
+    font-size:14px; font-weight:700; padding:7px 8px; width: 100%; font-family:'Inter',sans-serif;
+  }
+  .kg-input:focus{ outline:none; border-color: var(--volt); }
+  .kg-suffix{ font-size:12px; color:var(--ink-dim); font-weight:700; }
+
+  .video-btn{
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    margin-top: 10px; text-decoration:none;
+    background: transparent; border: 1.5px solid var(--volt); color: var(--volt);
+    border-radius: 10px; padding: 8px 10px; font-weight:700; font-size: 13.5px;
+  }
+  .video-btn:active{ background: var(--volt); color:#14150f; }
+  .video-btn svg{ width:15px; height:15px; }
+
+  .warm-card{ display:flex; align-items:center; gap:10px; padding:10px 12px; }
+  .warm-card .thumb{ width:44px; height:44px; }
+  .warm-card .ex-name{ font-size:14px; }
+  .warm-card .video-btn{ margin-top:0; padding:6px 8px; flex:0 0 auto; }
+  .warm-card .video-btn span{ display:none; }
+
+  .cardio-row{ display:flex; gap:8px; margin-top:9px; }
+  .cardio-field{ flex:1; }
+  .cardio-field label{ display:block; font-size:11px; color:var(--ink-dim); font-weight:700; margin-bottom:4px; text-transform:uppercase; letter-spacing:.5px; }
+  select.kg-input{ appearance:none; -webkit-appearance:none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%239b9ba3'><path d='M7 10l5 5 5-5z'/></svg>"); background-repeat:no-repeat; background-position: right 8px center; background-size:16px; padding-right:28px; }
+
+  .hist-day{ margin-bottom: 16px; }
+  .hist-date{ font-family:'Bebas Neue',sans-serif; font-size:16px; letter-spacing:.5px; color:var(--ink-dim); margin: 4px 2px 6px; display:flex; align-items:center; gap:8px; }
+  .hist-date .chip{ font-family:'Inter',sans-serif; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:20px; background:var(--volt); color:#14150f; }
+  .hist-item{ display:flex; justify-content:space-between; font-size:13.5px; padding:6px 2px; border-bottom:1px solid var(--card-border); }
+  .hist-item:last-child{ border-bottom:none; }
+  .hist-item .n{ font-weight:600; }
+  .hist-item .v{ font-weight:800; color: var(--ink); }
+  .empty-hist{ color:var(--ink-dim); font-size:13px; text-align:center; padding: 30px 20px; }
+
+  footer{ text-align:center; color: var(--ink-dim); font-size: 11px; margin-top: 26px; padding: 0 16px; }
+  footer b{ color: var(--volt); }
+  .storage-note{ background:#2b2410; border:1px solid #4a3d1a; color:#e8cf7a; font-size:11.5px; border-radius:10px; padding:8px 10px; margin: 10px 2px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="title">ESPERANZA <span>· BLOQUE 1</span></div>
+  <div class="subtitle">Ars Fitness Personal Training — Julio 2026</div>
+  <div class="tabs" id="tabs"></div>
+</div>
+
+<main id="main"></main>
+
+<footer>Toca <b>▢</b> para marcar un ejercicio hecho. Los kg y el cardio se guardan por día y quedan en <b>Historial</b>.</footer>
+
+<script>
+// ---------- icon library (used when there's no real video thumbnail available) ----------
+function iconSvg(inner){
+  return `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
+}
+const HEAD = `<circle cx="{cx}" cy="{cy}" r="4" fill="currentColor" stroke="none"/>`;
+function head(cx,cy){ return HEAD.replace('{cx}',cx).replace('{cy}',cy); }
+
+const ICONX = {
+  squat: iconSvg(head(24,8) + `<path d="M14 12h20"/><path d="M24 12v14"/><path d="M24 26l-6 8v8"/><path d="M24 26l3 9-1 7"/>`),
+  splitsquat: iconSvg(head(24,8) + `<path d="M24 12v14"/><path d="M24 26v14"/><path d="M24 26l12 10"/>`),
+  legpress: iconSvg(head(10,20) + `<path d="M10 24h16"/><path d="M26 24l8-8"/><path d="M34 16v22"/>`),
+  legext: iconSvg(head(16,10) + `<path d="M16 14v16"/><path d="M16 30l18-4"/><circle cx="36" cy="27" r="2.5" fill="currentColor" stroke="none"/>`),
+  legcurl: iconSvg(head(30,10) + `<path d="M30 14v16"/><path d="M30 30l-18 6"/><circle cx="10" cy="37" r="2.5" fill="currentColor" stroke="none"/>`),
+  abduction: iconSvg(head(24,8) + `<path d="M24 12v14"/><path d="M24 26l-10 12"/><path d="M24 26l10 12"/><path d="M10 20l-4 4M38 20l4 4"/>`),
+  chestpress: iconSvg(`<path d="M8 32h22"/><path d="M17 32V20"/><path d="M17 20l-9-8"/><path d="M17 20l9-8"/><path d="M6 24h6M28 24h6"/>`),
+  row: iconSvg(head(14,12) + `<path d="M14 16l12 14"/><path d="M26 30l-10-4"/><path d="M26 30l10 4"/>`),
+  pulldown: iconSvg(head(24,8) + `<path d="M10 12h28"/><path d="M24 12v10"/><path d="M24 22l-10 12"/><path d="M24 22l10 12"/>`),
+  facepull: iconSvg(head(24,8) + `<path d="M24 12v18"/><path d="M24 18l-11-2"/><path d="M24 18l11-2"/><path d="M13 16l4 4M35 16l-4 4"/>`),
+  lateral: iconSvg(head(24,8) + `<path d="M24 12v18"/><path d="M24 16l-16-3"/><path d="M24 16l16-3"/>`),
+  reardelt: iconSvg(head(16,10) + `<path d="M16 14l14 16"/><path d="M22 20l-10-6"/><path d="M22 20l4-12"/>`),
+  pecfly: iconSvg(`<path d="M6 32h24"/><path d="M18 32V22"/><path d="M18 22c-4-4-8-6-12-6"/><path d="M18 22c4-4 8-6 12-6"/>`),
+  deadlift: iconSvg(head(24,8) + `<path d="M24 12l-8 14"/><path d="M16 26v14"/><path d="M24 12l-2 26"/><path d="M8 40h18"/>`),
+  tricep: iconSvg(head(24,6) + `<path d="M24 10v10"/><path d="M24 10v22"/><path d="M24 20l-6 4"/>`),
+  glutekick: iconSvg(`<path d="M8 22h16"/><path d="M8 22v14M16 22v14"/><path d="M24 22l12-10"/>`),
+  adductor: iconSvg(head(24,8) + `<path d="M24 12v14"/><path d="M14 38l10-12"/><path d="M34 38l-10-12"/><path d="M11 32l3 4M37 32l-3 4"/>`),
+  bicep: iconSvg(head(24,8) + `<path d="M24 12v14"/><path d="M24 26l-8 8"/><path d="M16 34l6-10"/>`)
+};
+
+function ytId(url){
+  const m = url.match(/(?:v=|shorts\/|youtu\.be\/)([a-zA-Z0-9_-]{6,15})/);
+  return m ? m[1] : null;
+}
+function thumbHtml(ex){
+  const id = ytId(ex.video);
+  if(id){
+    return `<img src="https://img.youtube.com/vi/${id}/hqdefault.jpg" alt="${ex.name}" loading="lazy">`;
+  }
+  return ICONX[ex.icon] || ICONX.squat;
+}
+
+const DATA = {
+  A: { label:"Día A", sub:"Tren inferior",
+    warmup:[
+      {name:"Cat-camel", series:"2", rep:"10", video:"https://www.youtube.com/watch?v=1cs3SKwQZpM"},
+      {name:"Rotación torácica", series:"2", rep:"10", video:"https://www.youtube.com/watch?v=iWxGRsCGURM"},
+      {name:"Elevación en Y", series:"2", rep:"10", video:"https://www.youtube.com/shorts/3pwh5M8nBSs"},
+      {name:"Cadera 90/90", series:"2", rep:"10", video:"https://www.youtube.com/shorts/eu7CXsemhPk"}],
+    strength:[
+      {name:"Abducciones en máquina sentado", series:"3", rep:"14-18", recp:"1,5’", int:"8/10", icon:"abduction", video:"https://www.sergiomcoach.com/topics/10-abducciones-en-maquina-sentado-2/"},
+      {name:"Sentadilla Multipower", series:"2", rep:"8-10", recp:"2’", int:"6/10", icon:"squat", video:"https://www.sergiomcoach.com/topics/1-sentadilla-en-multipower-2/"},
+      {name:"Prensa horizontal", series:"2", rep:"8-10", recp:"2’", int:"7/10", icon:"legpress", video:"https://www.sergiomcoach.com/topics/6-prensa-horizontal-2/"},
+      {name:"Curl femoral de pie", series:"2", rep:"10-12", recp:"1,5’", int:"8/10", icon:"legcurl", video:"https://www.youtube.com/shorts/K4moYGBfNmo"},
+      {name:"Leg extensión", series:"3", rep:"12-15", recp:"2’", int:"8/10", icon:"legext", video:"https://www.sergiomcoach.com/topics/9-leg-extensions-2/"},
+      {name:"Curl femoral sentado", series:"4", rep:"12-15", recp:"2’", int:"8/10", icon:"legcurl", video:"https://www.sergiomcoach.com/topics/6-leg-curl-sentado-2/"}]
+  },
+  B: { label:"Día B", sub:"Tren superior",
+    warmup:[
+      {name:"Dislocaciones de hombro", series:"2", rep:"10", video:"https://www.youtube.com/watch?v=aXR9dM8TZvc"},
+      {name:"Rotación externa", series:"2", rep:"12", video:"https://www.youtube.com/shorts/g_ieRSG-lXI"},
+      {name:"Wall ángel", series:"2", rep:"12", video:"https://www.youtube.com/shorts/Pv2h3CvkA8U"},
+      {name:"Retracción escapular", series:"3", rep:"12", video:"https://www.youtube.com/shorts/HhROhD-gAdk"}],
+    strength:[
+      {name:"Press plano con mancuernas (pies en banco)", series:"3", rep:"8-10", recp:"2’", int:"7/10", icon:"chestpress", video:"https://www.sergiomcoach.com/topics/3-press-plano-con-mancuernas-2/"},
+      {name:"Remo T", series:"2", rep:"8-12", recp:"2’", int:"7/10", icon:"row", video:"https://www.sergiomcoach.com/topics/33-remo-en-t-2/"},
+      {name:"Face pull", series:"2", rep:"14-18", recp:"1,5’", int:"9/10", icon:"facepull", video:"https://www.sergiomcoach.com/topics/13-facepull-2/"},
+      {name:"Jalón neutro", series:"3", rep:"10-15", recp:"2’", int:"9/10", icon:"pulldown", video:"https://www.sergiomcoach.com/topics/6-jalon-al-pecho-neutro-2/"},
+      {name:"Elevaciones laterales", series:"3", rep:"12-16", recp:"1,5’", int:"10/10", icon:"lateral", video:"https://www.sergiomcoach.com/topics/1-elevaciones-laterales-de-pie-2/"},
+      {name:"Pájaros con mancuernas", series:"2", rep:"12-15", recp:"1,5’", int:"8/10", icon:"reardelt", video:"https://www.sergiomcoach.com/topics/3-pajaros-con-mancuernas-en-banco-inclinado-2/"},
+      {name:"Pec fly", series:"2", rep:"12-16", recp:"1,5’", int:"9/10", icon:"pecfly", video:"https://www.sergiomcoach.com/topics/22-aperturas-con-mancuerna-en-banco-plano-3/"}]
+  },
+  C: { label:"Día C", sub:"Cadena posterior",
+    warmup:[
+      {name:"Cat-camel", series:"2", rep:"10", video:"https://www.youtube.com/watch?v=1cs3SKwQZpM"},
+      {name:"Rotación torácica", series:"2", rep:"10", video:"https://www.youtube.com/watch?v=iWxGRsCGURM"},
+      {name:"Retracciones escapulares", series:"2", rep:"10", video:"https://www.youtube.com/shorts/HhROhD-gAdk"},
+      {name:"Cadera 90/90", series:"2", rep:"10", video:"https://www.youtube.com/shorts/eu7CXsemhPk"}],
+    strength:[
+      {name:"Abducciones en máquina", series:"2", rep:"14-18", recp:"1,5’", int:"8/10", icon:"abduction", video:"https://www.sergiomcoach.com/topics/10-abducciones-en-maquina-sentado-2/"},
+      {name:"Peso muerto rumano", series:"2", rep:"8-10", recp:"3’", int:"6/10", icon:"deadlift", video:"https://www.sergiomcoach.com/topics/1-peso-muerto-rumano-rdl-2/"},
+      {name:"Remo Gironda prono", series:"3", rep:"8-12", recp:"2’", int:"8/10", icon:"row", video:"https://www.sergiomcoach.com/topics/11-remo-gironda-2/"},
+      {name:"Extensión trasnuca en polea", series:"2", rep:"14-18", recp:"2’", int:"10/10", icon:"tricep", video:"https://www.sergiomcoach.com/topics/2-extensiones-de-codo-en-polea-trasnuca-con-cuerda-en-2/"},
+      {name:"Leg curl tumbado", series:"3", rep:"12-16", recp:"2’", int:"6/10", icon:"legcurl", video:"https://www.sergiomcoach.com/topics/5-leg-curl-tumbado-2/"},
+      {name:"Remo con mancuerna unilateral", series:"3", rep:"10-14", recp:"2’", int:"8/10", icon:"row", video:"https://www.sergiomcoach.com/topics/20-remo-con-mancuerna-unilateral-2/"},
+      {name:"Patada de glúteo en máquina", series:"2", rep:"12-15", recp:"1,5’", int:"6/10", icon:"glutekick", video:"https://www.sergiomcoach.com/topics/28-patada-de-gluteo-en-maquina-de-placas-de-pie-2/"},
+      {name:"Pec fly inverso", series:"2", rep:"12-15", recp:"1,5’", int:"8/10", icon:"reardelt", video:"https://www.sergiomcoach.com/topics/6-contractora-invertida-2/"}]
+  },
+  D: { label:"Día D", sub:"Cadena anterior",
+    warmup:[
+      {name:"Dislocaciones de hombro", series:"2", rep:"10", video:"https://www.youtube.com/watch?v=aXR9dM8TZvc"},
+      {name:"Rotación externa", series:"2", rep:"12", video:"https://www.youtube.com/shorts/g_ieRSG-lXI"},
+      {name:"Wall ángel", series:"2", rep:"12", video:"https://www.youtube.com/shorts/Pv2h3CvkA8U"},
+      {name:"Retracción escapular", series:"3", rep:"12", video:"https://www.youtube.com/shorts/HhROhD-gAdk"}],
+    strength:[
+      {name:"Aductor en máquina", series:"3", rep:"8-12", recp:"2’", int:"8/10", icon:"adductor", video:"https://www.sergiomcoach.com/topics/1-aductor-en-maquina-v1-2/"},
+      {name:"Sentadilla búlgara", series:"2", rep:"10-14", recp:"3’", int:"6/10", icon:"splitsquat", video:"https://www.sergiomcoach.com/topics/8-sentadilla-bulgara-con-mancuerna-apoyo-de-mano-2/"},
+      {name:"Press inclinado con mancuernas", series:"2", rep:"8-12", recp:"2’", int:"8/10", icon:"chestpress", video:"https://www.sergiomcoach.com/topics/2-press-inclinado-con-mancuernas-2/"},
+      {name:"Curl de bíceps en banco inclinado", series:"2", rep:"14-18", recp:"2’", int:"10/10", icon:"bicep", video:"https://www.sergiomcoach.com/topics/6-curl-tumbado-en-banco-inclinado-2/"},
+      {name:"Press plano en máquina", series:"3", rep:"10-15", recp:"2’", int:"8/10", icon:"chestpress", video:"https://www.sergiomcoach.com/topics/38-press-plano-palancas-2/"},
+      {name:"Extensión de cuádriceps", series:"3", rep:"10-14", recp:"1,5’", int:"6/10", icon:"legext", video:"https://www.sergiomcoach.com/topics/9-leg-extensions-2/"}]
+  }
+};
+
+const DAY_ORDER = ["A","B","C","D"];
+let current = "A";
+const doneState = {};
+
+// ---------- Persistence: Supabase (cross-device, real database) with localStorage as an offline backup ----------
+// 1) Fill these two lines in with your own Supabase project's values (Project Settings > API).
+// 2) Run the SQL in supabase-setup.sql (included alongside this file) in the Supabase SQL editor first.
+const SUPABASE_URL = "PASTE_YOUR_SUPABASE_URL_HERE";       // e.g. "https://abcdefgh.supabase.co"
+const SUPABASE_ANON_KEY = "PASTE_YOUR_SUPABASE_ANON_KEY_HERE";
+
+let sb = null;
+if(SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.length > 10 && window.supabase){
+  try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }catch(e){ sb = null; }
+}
+
+let hasLocalStorage = false;
+try{
+  window.localStorage.setItem('__esperanza_test__','1');
+  window.localStorage.removeItem('__esperanza_test__');
+  hasLocalStorage = true;
+}catch(e){ hasLocalStorage = false; }
+
+const hasPersistent = !!sb || hasLocalStorage;
+const memStore = {};
+const LS_PREFIX = 'esperanza-rutina:';
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+
+function lsGetLog(day, date){
+  try{
+    const raw = window.localStorage.getItem(LS_PREFIX + `log:${day}:${date}`);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function lsSaveLog(day, date, logObj){
+  try{ window.localStorage.setItem(LS_PREFIX + `log:${day}:${date}`, JSON.stringify(logObj)); }catch(e){}
+}
+function lsListLogs(){
+  const out = [];
+  try{
+    for(let i=0;i<window.localStorage.length;i++){
+      const k = window.localStorage.key(i);
+      if(k && k.startsWith(LS_PREFIX + 'log:')){
+        const parts = k.slice((LS_PREFIX+'log:').length).split(':');
+        const raw = window.localStorage.getItem(k);
+        try{ const parsed = JSON.parse(raw); out.push({ day: parts[0], date: parts[1], weights: parsed.weights||{}, cardio: parsed.cardio||{} }); }catch(e){}
+      }
+    }
+  }catch(e){}
+  return out;
+}
+
+async function getLog(day, date){
+  if(sb){
+    try{
+      const { data, error } = await sb.from('workout_logs').select('weights,cardio').eq('day', day).eq('log_date', date).maybeSingle();
+      if(!error && data){
+        const result = { weights: data.weights||{}, cardio: data.cardio||{minutes:"",machine:""} };
+        lsSaveLog(day, date, result); // keep a local backup copy too
+        return result;
+      }
+    }catch(e){ /* offline or network issue: fall back below */ }
+  }
+  if(hasLocalStorage){
+    const local = lsGetLog(day, date);
+    if(local) return { weights: local.weights||{}, cardio: local.cardio||{minutes:"",machine:""} };
+  }
+  const mem = memStore[`log:${day}:${date}`];
+  return mem || { weights:{}, cardio:{ minutes:"", machine:"" } };
+}
+
+async function saveLog(day, date, logObj){
+  memStore[`log:${day}:${date}`] = logObj;
+  if(hasLocalStorage) lsSaveLog(day, date, logObj); // always keep a local backup, even if Supabase is reachable
+  if(sb){
+    try{
+      await sb.from('workout_logs').upsert(
+        { day, log_date: date, weights: logObj.weights, cardio: logObj.cardio, updated_at: new Date().toISOString() },
+        { onConflict: 'day,log_date' }
+      );
+    }catch(e){ /* saved locally at least; will not sync until back online */ }
+  }
+}
+
+async function listAllLogs(){
+  if(sb){
+    try{
+      const { data, error } = await sb.from('workout_logs').select('day,log_date,weights,cardio').order('log_date',{ascending:false});
+      if(!error && data && data.length){
+        return data.map(r => ({ day: r.day, date: r.log_date, weights: r.weights||{}, cardio: r.cardio||{} }));
+      }
+    }catch(e){ /* fall back to local */ }
+  }
+  return lsListLogs();
+}
+
+const tabsEl = document.getElementById('tabs');
+const mainEl = document.getElementById('main');
+
+function checkIcon(){ return '<svg viewBox="0 0 24 24" fill="none"><path d="M4 12.5L9.5 18L20 6" stroke="#14150f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
+function playIcon(){ return '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'; }
+
+function renderTabs(){
+  const dayTabs = DAY_ORDER.map(k => `
+    <div class="tab ${k===current?'active':''}" data-day="${k}">${DATA[k].label}<small>${DATA[k].sub}</small></div>
+  `).join('');
+  const histTab = `<div class="tab ${current==='HIST'?'active':''}" data-day="HIST">Historial<small>datos</small></div>`;
+  tabsEl.innerHTML = dayTabs + histTab;
+  tabsEl.querySelectorAll('.tab').forEach(t=>{
+    t.addEventListener('click', ()=>{ current = t.dataset.day; renderTabs(); renderMain(); });
+  });
+}
+
+function warmCard(day, ex, idx){
+  const key = `${day}-warm-${idx}`;
+  const isDone = !!doneState[key];
+  return `
+    <div class="card warm-card ${isDone?'done':''}" data-key="${key}">
+      <div class="check">${checkIcon()}</div>
+      <div class="thumb">${thumbHtml(ex)}</div>
+      <div class="ex-name">${ex.name} <span style="color:var(--ink-dim); font-weight:500;">· ${ex.series}x${ex.rep}</span></div>
+      <a class="video-btn" href="${ex.video}" target="_blank" rel="noopener">${playIcon()}<span>Ver</span></a>
+    </div>`;
+}
+
+function strengthCard(day, ex, idx, kgValue){
+  const key = `${day}-strength-${idx}`;
+  const isDone = !!doneState[key];
+  return `
+    <div class="card ${isDone?'done':''}" data-key="${key}">
+      <div class="card-top">
+        <div class="check">${checkIcon()}</div>
+        <div class="thumb">${thumbHtml(ex)}</div>
+        <div class="ex-name">${ex.name}</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>Series</b>${ex.series}</div>
+        <div class="stat"><b>Reps</b>${ex.rep}</div>
+        <div class="stat"><b>Descanso</b>${ex.recp}</div>
+        <div class="stat"><b>Int.</b>${ex.int}</div>
+      </div>
+      <div class="kg-row">
+        <label>Kg hoy</label>
+        <input class="kg-input" type="number" inputmode="decimal" min="0" step="0.5" placeholder="0" value="${kgValue||''}" data-kg-idx="${idx}">
+        <span class="kg-suffix">kg</span>
+      </div>
+      <a class="video-btn" href="${ex.video}" target="_blank" rel="noopener">${playIcon()}<span>Ver vídeo</span></a>
+    </div>`;
+}
+
+function cardioCard(day, cardio){
+  return `
+    <div class="card">
+      <div class="ex-name">Cardio libre</div>
+      <div class="cardio-row">
+        <div class="cardio-field">
+          <label>Minutos</label>
+          <input class="kg-input" type="number" inputmode="numeric" min="0" step="1" placeholder="0" value="${cardio.minutes||''}" id="cardio-minutes">
+        </div>
+        <div class="cardio-field">
+          <label>Máquina</label>
+          <select class="kg-input" id="cardio-machine">
+            <option value="" ${!cardio.machine?'selected':''}>Elegir…</option>
+            <option value="Bici" ${cardio.machine==='Bici'?'selected':''}>Bici</option>
+            <option value="Elíptica" ${cardio.machine==='Elíptica'?'selected':''}>Elíptica</option>
+            <option value="Cinta" ${cardio.machine==='Cinta'?'selected':''}>Cinta</option>
+          </select>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function renderMain(){
+  if(current === 'HIST'){ await renderHistory(); return; }
+
+  const day = current;
+  const d = DATA[day];
+  const date = todayStr();
+  const log = await getLog(day, date);
+
+  const total = d.warmup.length + d.strength.length;
+  const doneCount = [...d.warmup.keys()].filter(i=>doneState[`${day}-warm-${i}`]).length
+                  + [...d.strength.keys()].filter(i=>doneState[`${day}-strength-${i}`]).length;
+
+  mainEl.innerHTML = `
+    <div class="day-head">
+      <h2>${d.label} · ${d.sub}</h2>
+      <div class="progress">${doneCount}/${total}</div>
+    </div>
+
+    ${!sb ? `<div class="storage-note">${hasLocalStorage ? 'Aún no está conectado a Supabase: los kg y el cardio se están guardando solo en este navegador (no viajarán a otro dispositivo) hasta que rellenes SUPABASE_URL y SUPABASE_ANON_KEY en el archivo.' : 'Este navegador no permite guardar datos, así que los kg y el cardio de hoy no se guardarán al cerrar la página.'}</div>` : ''}
+
+    <div class="section-label warm">Calentamiento</div>
+    ${d.warmup.map((ex,i)=>warmCard(day, ex, i)).join('')}
+
+    <div class="section-label strength">Entrenamiento de fuerza</div>
+    ${d.strength.map((ex,i)=>strengthCard(day, ex, i, log.weights[i])).join('')}
+
+    <div class="section-label cardio">Cardio</div>
+    ${cardioCard(day, log.cardio)}
+  `;
+
+  mainEl.querySelectorAll('.check').forEach(chk=>{
+    chk.addEventListener('click', (e)=>{
+      const card = e.target.closest('.card');
+      const key = card.dataset.key;
+      doneState[key] = !doneState[key];
+      renderMain();
+    });
+  });
+
+  mainEl.querySelectorAll('[data-kg-idx]').forEach(inp=>{
+    inp.addEventListener('change', async ()=>{
+      const idx = inp.dataset.kgIdx;
+      const fresh = await getLog(day, date);
+      fresh.weights[idx] = inp.value;
+      await saveLog(day, date, fresh);
+    });
+  });
+
+  const minutesEl = mainEl.querySelector('#cardio-minutes');
+  const machineEl = mainEl.querySelector('#cardio-machine');
+  async function saveCardio(){
+    const fresh = await getLog(day, date);
+    fresh.cardio = { minutes: minutesEl.value, machine: machineEl.value };
+    await saveLog(day, date, fresh);
+  }
+  if(minutesEl) minutesEl.addEventListener('change', saveCardio);
+  if(machineEl) machineEl.addEventListener('change', saveCardio);
+}
+
+async function renderHistory(){
+  mainEl.innerHTML = `<div class="day-head"><h2>Historial</h2></div><div id="hist-body"></div>`;
+  const body = mainEl.querySelector('#hist-body');
+
+  const entries = await listAllLogs();
+  entries.sort((a,b)=> b.date.localeCompare(a.date));
+
+  if(entries.length === 0){
+    body.innerHTML = `<div class="empty-hist">Todavía no has guardado ningún kg ni cardio.</div>`;
+    return;
+  }
+
+  body.innerHTML = entries.map(e=>{
+    const d = DATA[e.day];
+    const weightRows = Object.entries(e.weights)
+      .filter(([idx,val]) => val !== undefined && val !== null && val !== "")
+      .map(([idx,val]) => `<div class="hist-item"><span class="n">${d.strength[idx] ? d.strength[idx].name : ('Ejercicio '+idx)}</span><span class="v">${val} kg</span></div>`)
+      .join('');
+    const cardioRow = (e.cardio && (e.cardio.minutes || e.cardio.machine))
+      ? `<div class="hist-item"><span class="n">Cardio ${e.cardio.machine||''}</span><span class="v">${e.cardio.minutes||'0'} min</span></div>`
+      : '';
+    const body2 = weightRows + cardioRow;
+    return `
+      <div class="hist-day">
+        <div class="hist-date">${e.date} <span class="chip">${d.label} · ${d.sub}</span></div>
+        ${body2 || '<div class="empty-hist" style="padding:10px 2px;">Sin datos guardados ese día.</div>'}
+      </div>`;
+  }).join('');
+}
+
+renderTabs();
+renderMain();
+</script>
+</body>
+</html>
