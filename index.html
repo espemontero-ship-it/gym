@@ -159,8 +159,9 @@
   .preview-header{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
   .preview-title{ font-weight:800; font-size:16px; line-height:1.2; }
   .preview-close{ border:0; background:transparent; color:var(--ink-dim); font-size:22px; line-height:1; cursor:pointer; }
-  .preview-media{ border-radius:14px; overflow:hidden; background:#17181a; border:1px solid var(--line); min-height:220px; display:flex; align-items:center; justify-content:center; }
+  .preview-media{ border-radius:14px; overflow:hidden; background:#17181a; border:1px solid var(--line); min-height:220px; display:flex; align-items:center; justify-content:center; aspect-ratio: 16/9; }
   .preview-media img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .preview-media iframe{ width:100%; height:100%; border:0; display:block; }
   .preview-media svg{ width:72px; height:72px; color:var(--volt-dim); }
   .preview-meta{ margin-top:10px; color:var(--ink-dim); font-size:13px; }
   .preview-actions{ display:flex; gap:8px; margin-top:12px; }
@@ -232,6 +233,9 @@ function ytId(url){
   return m ? m[1] : null;
 }
 function thumbHtml(ex){
+  if(ex.photo){
+    return `<img src="${encodeURI(ex.photo)}" alt="${ex.name}" loading="lazy">`;
+  }
   const id = ytId(ex.video);
   if(id){
     return `<img src="https://img.youtube.com/vi/${id}/hqdefault.jpg" alt="${ex.name}" loading="lazy">`;
@@ -250,12 +254,12 @@ const DATA = {
       {name:"Elevación en Y", series:"2", rep:"10", video:"https://www.youtube.com/shorts/3pwh5M8nBSs"},
       {name:"Cadera 90/90", series:"2", rep:"10", video:"https://www.youtube.com/shorts/eu7CXsemhPk"}],
     strength:[
-      {name:"Abducciones en máquina sentado", series:"3", rep:"14-18", recp:"1,5’", int:"8/10", icon:"abduction", video:"https://www.sergiomcoach.com/topics/10-abducciones-en-maquina-sentado-2/"},
-      {name:"Sentadilla Multipower", series:"2", rep:"8-10", recp:"2’", int:"6/10", icon:"squat", video:"https://www.sergiomcoach.com/topics/1-sentadilla-en-multipower-2/"},
-      {name:"Prensa horizontal", series:"2", rep:"8-10", recp:"2’", int:"7/10", icon:"legpress", video:"https://www.sergiomcoach.com/topics/6-prensa-horizontal-2/"},
+      {name:"Abducciones en máquina sentado", series:"3", rep:"14-18", recp:"1,5’", int:"8/10", icon:"abduction", video:"https://www.sergiomcoach.com/topics/10-abducciones-en-maquina-sentado-2/", photo:"fotos/abducciones en maquina sentado.png"},
+      {name:"Sentadilla Multipower", series:"2", rep:"8-10", recp:"2’", int:"6/10", icon:"squat", video:"https://www.sergiomcoach.com/topics/1-sentadilla-en-multipower-2/", photo:"fotos/sentarilla multipower.png"},
+      {name:"Prensa horizontal", series:"2", rep:"8-10", recp:"2’", int:"7/10", icon:"legpress", video:"https://www.sergiomcoach.com/topics/6-prensa-horizontal-2/", photo:"fotos/prensa horizontal.png"},
       {name:"Curl femoral de pie", series:"2", rep:"10-12", recp:"1,5’", int:"8/10", icon:"legcurl", video:"https://www.youtube.com/shorts/K4moYGBfNmo"},
-      {name:"Leg extensión", series:"3", rep:"12-15", recp:"2’", int:"8/10", icon:"legext", video:"https://www.sergiomcoach.com/topics/9-leg-extensions-2/"},
-      {name:"Curl femoral sentado", series:"4", rep:"12-15", recp:"2’", int:"8/10", icon:"legcurl", video:"https://www.sergiomcoach.com/topics/6-leg-curl-sentado-2/"}]
+      {name:"Leg extensión", series:"3", rep:"12-15", recp:"2’", int:"8/10", icon:"legext", video:"https://www.sergiomcoach.com/topics/9-leg-extensions-2/", photo:"fotos/extensiones .png"},
+      {name:"Curl femoral sentado", series:"4", rep:"12-15", recp:"2’", int:"8/10", icon:"legcurl", video:"https://www.sergiomcoach.com/topics/6-leg-curl-sentado-2/", photo:"fotos/curl femoral sentado.png"}]
   },
   B: { label:"Día B", sub:"Tren superior",
     warmup:[
@@ -264,13 +268,13 @@ const DATA = {
       {name:"Wall ángel", series:"2", rep:"12", video:"https://www.youtube.com/shorts/Pv2h3CvkA8U"},
       {name:"Retracción escapular", series:"3", rep:"12", video:"https://www.youtube.com/shorts/HhROhD-gAdk"}],
     strength:[
-      {name:"Press plano con mancuernas (pies en banco)", series:"3", rep:"8-10", recp:"2’", int:"7/10", icon:"chestpress", video:"https://www.sergiomcoach.com/topics/3-press-plano-con-mancuernas-2/"},
-      {name:"Remo T", series:"2", rep:"8-12", recp:"2’", int:"7/10", icon:"row", video:"https://www.sergiomcoach.com/topics/33-remo-en-t-2/"},
-      {name:"Face pull", series:"2", rep:"14-18", recp:"1,5’", int:"9/10", icon:"facepull", video:"https://www.sergiomcoach.com/topics/13-facepull-2/"},
-      {name:"Jalón neutro", series:"3", rep:"10-15", recp:"2’", int:"9/10", icon:"pulldown", video:"https://www.sergiomcoach.com/topics/6-jalon-al-pecho-neutro-2/"},
-      {name:"Elevaciones laterales", series:"3", rep:"12-16", recp:"1,5’", int:"10/10", icon:"lateral", video:"https://www.sergiomcoach.com/topics/1-elevaciones-laterales-de-pie-2/"},
-      {name:"Pájaros con mancuernas", series:"2", rep:"12-15", recp:"1,5’", int:"8/10", icon:"reardelt", video:"https://www.sergiomcoach.com/topics/3-pajaros-con-mancuernas-en-banco-inclinado-2/"},
-      {name:"Pec fly", series:"2", rep:"12-16", recp:"1,5’", int:"9/10", icon:"pecfly", video:"https://www.sergiomcoach.com/topics/22-aperturas-con-mancuerna-en-banco-plano-3/"}]
+      {name:"Press plano con mancuernas (pies en banco)", series:"3", rep:"8-10", recp:"2’", int:"7/10", icon:"chestpress", video:"https://www.sergiomcoach.com/topics/3-press-plano-con-mancuernas-2/", photo:"fotos/press plano con mancuernas.png"},
+      {name:"Remo T", series:"2", rep:"8-12", recp:"2’", int:"7/10", icon:"row", video:"https://www.sergiomcoach.com/topics/33-remo-en-t-2/", photo:"fotos/remo t.png"},
+      {name:"Face pull", series:"2", rep:"14-18", recp:"1,5’", int:"9/10", icon:"facepull", video:"https://www.sergiomcoach.com/topics/13-facepull-2/", photo:"fotos/face pull.png"},
+      {name:"Jalón neutro", series:"3", rep:"10-15", recp:"2’", int:"9/10", icon:"pulldown", video:"https://www.sergiomcoach.com/topics/6-jalon-al-pecho-neutro-2/", photo:"fotos/jalon neutro.png"},
+      {name:"Elevaciones laterales", series:"3", rep:"12-16", recp:"1,5’", int:"10/10", icon:"lateral", video:"https://www.sergiomcoach.com/topics/1-elevaciones-laterales-de-pie-2/", photo:"fotos/elevaciones laterales de pie.png"},
+      {name:"Pájaros con mancuernas", series:"2", rep:"12-15", recp:"1,5’", int:"8/10", icon:"reardelt", video:"https://www.sergiomcoach.com/topics/3-pajaros-con-mancuernas-en-banco-inclinado-2/", photo:"fotos/pajaros con mancuernas.png"},
+      {name:"Pec fly", series:"2", rep:"12-16", recp:"1,5’", int:"9/10", icon:"pecfly", video:"https://www.sergiomcoach.com/topics/22-aperturas-con-mancuerna-en-banco-plano-3/", photo:"fotos/pec fly.png"}]
   },
   C: { label:"Día C", sub:"Cadena posterior",
     warmup:[
@@ -279,14 +283,14 @@ const DATA = {
       {name:"Retracciones escapulares", series:"2", rep:"10", video:"https://www.youtube.com/shorts/HhROhD-gAdk"},
       {name:"Cadera 90/90", series:"2", rep:"10", video:"https://www.youtube.com/shorts/eu7CXsemhPk"}],
     strength:[
-      {name:"Abducciones en máquina", series:"2", rep:"14-18", recp:"1,5’", int:"8/10", icon:"abduction", video:"https://www.sergiomcoach.com/topics/10-abducciones-en-maquina-sentado-2/"},
-      {name:"Peso muerto rumano", series:"2", rep:"8-10", recp:"3’", int:"6/10", icon:"deadlift", video:"https://www.sergiomcoach.com/topics/1-peso-muerto-rumano-rdl-2/"},
-      {name:"Remo Gironda prono", series:"3", rep:"8-12", recp:"2’", int:"8/10", icon:"row", video:"https://www.sergiomcoach.com/topics/11-remo-gironda-2/"},
-      {name:"Extensión trasnuca en polea", series:"2", rep:"14-18", recp:"2’", int:"10/10", icon:"tricep", video:"https://www.sergiomcoach.com/topics/2-extensiones-de-codo-en-polea-trasnuca-con-cuerda-en-2/"},
-      {name:"Leg curl tumbado", series:"3", rep:"12-16", recp:"2’", int:"6/10", icon:"legcurl", video:"https://www.sergiomcoach.com/topics/5-leg-curl-tumbado-2/"},
-      {name:"Remo con mancuerna unilateral", series:"3", rep:"10-14", recp:"2’", int:"8/10", icon:"row", video:"https://www.sergiomcoach.com/topics/20-remo-con-mancuerna-unilateral-2/"},
-      {name:"Patada de glúteo en máquina", series:"2", rep:"12-15", recp:"1,5’", int:"6/10", icon:"glutekick", video:"https://www.sergiomcoach.com/topics/28-patada-de-gluteo-en-maquina-de-placas-de-pie-2/"},
-      {name:"Pec fly inverso", series:"2", rep:"12-15", recp:"1,5’", int:"8/10", icon:"reardelt", video:"https://www.sergiomcoach.com/topics/6-contractora-invertida-2/"}]
+      {name:"Abducciones en máquina", series:"2", rep:"14-18", recp:"1,5’", int:"8/10", icon:"abduction", video:"https://www.sergiomcoach.com/topics/10-abducciones-en-maquina-sentado-2/", photo:"fotos/abducciones en maquina sentado.png"},
+      {name:"Peso muerto rumano", series:"2", rep:"8-10", recp:"3’", int:"6/10", icon:"deadlift", video:"https://www.sergiomcoach.com/topics/1-peso-muerto-rumano-rdl-2/", photo:"fotos/peso muerto rumano.png"},
+      {name:"Remo Gironda prono", series:"3", rep:"8-12", recp:"2’", int:"8/10", icon:"row", video:"https://www.sergiomcoach.com/topics/11-remo-gironda-2/", photo:"fotos/remo gironda prono.png"},
+      {name:"Extensión trasnuca en polea", series:"2", rep:"14-18", recp:"2’", int:"10/10", icon:"tricep", video:"https://www.sergiomcoach.com/topics/2-extensiones-de-codo-en-polea-trasnuca-con-cuerda-en-2/", photo:"fotos/extensiones trasnuca.png"},
+      {name:"Leg curl tumbado", series:"3", rep:"12-16", recp:"2’", int:"6/10", icon:"legcurl", video:"https://www.sergiomcoach.com/topics/5-leg-curl-tumbado-2/", photo:"fotos/leg curl tumbado.png"},
+      {name:"Remo con mancuerna unilateral", series:"3", rep:"10-14", recp:"2’", int:"8/10", icon:"row", video:"https://www.sergiomcoach.com/topics/20-remo-con-mancuerna-unilateral-2/", photo:"fotos/remo con mancuerna.png"},
+      {name:"Patada de glúteo en máquina", series:"2", rep:"12-15", recp:"1,5’", int:"6/10", icon:"glutekick", video:"https://www.sergiomcoach.com/topics/28-patada-de-gluteo-en-maquina-de-placas-de-pie-2/", photo:"fotos/patada de gluteo.png"},
+      {name:"Pec fly inverso", series:"2", rep:"12-15", recp:"1,5’", int:"8/10", icon:"reardelt", video:"https://www.sergiomcoach.com/topics/6-contractora-invertida-2/", photo:"fotos/pec fly inverso.png"}]
   },
   D: { label:"Día D", sub:"Cadena anterior",
     warmup:[
@@ -295,12 +299,12 @@ const DATA = {
       {name:"Wall ángel", series:"2", rep:"12", video:"https://www.youtube.com/shorts/Pv2h3CvkA8U"},
       {name:"Retracción escapular", series:"3", rep:"12", video:"https://www.youtube.com/shorts/HhROhD-gAdk"}],
     strength:[
-      {name:"Aductor en máquina", series:"3", rep:"8-12", recp:"2’", int:"8/10", icon:"adductor", video:"https://www.sergiomcoach.com/topics/1-aductor-en-maquina-v1-2/"},
-      {name:"Sentadilla búlgara", series:"2", rep:"10-14", recp:"3’", int:"6/10", icon:"splitsquat", video:"https://www.sergiomcoach.com/topics/8-sentadilla-bulgara-con-mancuerna-apoyo-de-mano-2/"},
-      {name:"Press inclinado con mancuernas", series:"2", rep:"8-12", recp:"2’", int:"8/10", icon:"chestpress", video:"https://www.sergiomcoach.com/topics/2-press-inclinado-con-mancuernas-2/"},
-      {name:"Curl de bíceps en banco inclinado", series:"2", rep:"14-18", recp:"2’", int:"10/10", icon:"bicep", video:"https://www.sergiomcoach.com/topics/6-curl-tumbado-en-banco-inclinado-2/"},
-      {name:"Press plano en máquina", series:"3", rep:"10-15", recp:"2’", int:"8/10", icon:"chestpress", video:"https://www.sergiomcoach.com/topics/38-press-plano-palancas-2/"},
-      {name:"Extensión de cuádriceps", series:"3", rep:"10-14", recp:"1,5’", int:"6/10", icon:"legext", video:"https://www.sergiomcoach.com/topics/9-leg-extensions-2/"}]
+      {name:"Aductor en máquina", series:"3", rep:"8-12", recp:"2’", int:"8/10", icon:"adductor", video:"https://www.sergiomcoach.com/topics/1-aductor-en-maquina-v1-2/", photo:"fotos/aductor.png"},
+      {name:"Sentadilla búlgara", series:"2", rep:"10-14", recp:"3’", int:"6/10", icon:"splitsquat", video:"https://www.sergiomcoach.com/topics/8-sentadilla-bulgara-con-mancuerna-apoyo-de-mano-2/", photo:"fotos/sentadilla bulgara.png"},
+      {name:"Press inclinado con mancuernas", series:"2", rep:"8-12", recp:"2’", int:"8/10", icon:"chestpress", video:"https://www.sergiomcoach.com/topics/2-press-inclinado-con-mancuernas-2/", photo:"fotos/press inclinado con mancuernas.png"},
+      {name:"Curl de bíceps en banco inclinado", series:"2", rep:"14-18", recp:"2’", int:"10/10", icon:"bicep", video:"https://www.sergiomcoach.com/topics/6-curl-tumbado-en-banco-inclinado-2/", photo:"fotos/curl de biceps.png"},
+      {name:"Press plano en máquina", series:"3", rep:"10-15", recp:"2’", int:"8/10", icon:"chestpress", video:"https://www.sergiomcoach.com/topics/38-press-plano-palancas-2/", photo:"fotos/press plano palancas.png"},
+      {name:"Extensión de cuádriceps", series:"3", rep:"10-14", recp:"1,5’", int:"6/10", icon:"legext", video:"https://www.sergiomcoach.com/topics/9-leg-extensions-2/", photo:"fotos/extensiones .png"}]
   }
 };
 
@@ -418,8 +422,13 @@ function openPreview(ex){
 
   const id = ytId(ex.video || '');
   if(id){
-    previewMediaEl.innerHTML = `<img src="https://img.youtube.com/vi/${id}/mqdefault.jpg" alt="${escapeAttr(ex.name)}" loading="eager">`;
+    previewMediaEl.innerHTML = `<iframe src="https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&autoplay=1" title="${escapeAttr(ex.name)}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+  } else if(ex.photo){
+    previewMediaEl.innerHTML = `<img src="${encodeURI(ex.photo)}" alt="${escapeAttr(ex.name)}" loading="eager">`;
   } else {
+    // The sergiomcoach.com videos are hosted on Vimeo with embedding locked to their own domain
+    // (Vimeo's domain-privacy setting), so they can't be embedded here — fall back to the icon
+    // and rely on the "Abrir vídeo" button to open the source page instead.
     previewMediaEl.innerHTML = `<div class="thumb">${ICONX[ex.icon] || ICONX.squat}</div>`;
   }
 
@@ -430,6 +439,7 @@ function openPreview(ex){
 function closePreview(){
   previewModal.classList.remove('active');
   previewModal.setAttribute('aria-hidden','true');
+  previewMediaEl.innerHTML = ''; // stop any playing video
 }
 
 previewModal.addEventListener('click', (e)=>{ if(e.target === previewModal) closePreview(); });
@@ -457,7 +467,7 @@ function warmCard(day, ex, idx){
   return `
     <div class="card warm-card ${isDone?'done':''}" data-key="${key}">
       <div class="check">${checkIcon()}</div>
-      <button class="thumb-btn" type="button" data-name="${escapeAttr(ex.name)}" data-video="${escapeAttr(ex.video)}" data-series="${escapeAttr(ex.series)}" data-rep="${escapeAttr(ex.rep)}" data-recp="${escapeAttr(ex.recp || '')}" data-icon="${escapeAttr(ex.icon || '')}" aria-label="Ver detalle de ${escapeAttr(ex.name)}">
+      <button class="thumb-btn" type="button" data-name="${escapeAttr(ex.name)}" data-video="${escapeAttr(ex.video)}" data-series="${escapeAttr(ex.series)}" data-rep="${escapeAttr(ex.rep)}" data-recp="${escapeAttr(ex.recp || '')}" data-icon="${escapeAttr(ex.icon || '')}" data-photo="${escapeAttr(ex.photo || '')}" aria-label="Ver detalle de ${escapeAttr(ex.name)}">
         <div class="thumb">${thumbHtml(ex)}</div>
       </button>
       <div class="ex-name">${ex.name} <span style="color:var(--ink-dim); font-weight:500;">· ${ex.series}x${ex.rep}</span></div>
@@ -472,7 +482,7 @@ function strengthCard(day, ex, idx, kgValue){
     <div class="card ${isDone?'done':''}" data-key="${key}">
       <div class="card-top">
         <div class="check">${checkIcon()}</div>
-        <button class="thumb-btn" type="button" data-name="${escapeAttr(ex.name)}" data-video="${escapeAttr(ex.video)}" data-series="${escapeAttr(ex.series)}" data-rep="${escapeAttr(ex.rep)}" data-recp="${escapeAttr(ex.recp || '')}" data-icon="${escapeAttr(ex.icon || '')}" aria-label="Ver detalle de ${escapeAttr(ex.name)}">
+        <button class="thumb-btn" type="button" data-name="${escapeAttr(ex.name)}" data-video="${escapeAttr(ex.video)}" data-series="${escapeAttr(ex.series)}" data-rep="${escapeAttr(ex.rep)}" data-recp="${escapeAttr(ex.recp || '')}" data-icon="${escapeAttr(ex.icon || '')}" data-photo="${escapeAttr(ex.photo || '')}" aria-label="Ver detalle de ${escapeAttr(ex.name)}">
           <div class="thumb">${thumbHtml(ex)}</div>
         </button>
         <div class="ex-name">${ex.name}</div>
@@ -561,7 +571,8 @@ async function renderMain(){
         series: btn.dataset.series,
         rep: btn.dataset.rep,
         recp: btn.dataset.recp,
-        icon: btn.dataset.icon
+        icon: btn.dataset.icon,
+        photo: btn.dataset.photo
       });
     });
   });
