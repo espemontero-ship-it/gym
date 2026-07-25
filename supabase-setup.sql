@@ -6,9 +6,14 @@ create table if not exists workout_logs (
   log_date date not null,
   weights jsonb not null default '{}'::jsonb,
   cardio jsonb not null default '{}'::jsonb,
+  done jsonb not null default '{}'::jsonb,
   updated_at timestamptz not null default now(),
   unique (day, log_date)
 );
+
+-- If the table already existed from an earlier version of this app (without the
+-- "done" column, used to persist which exercises are checked off), add it now.
+alter table workout_logs add column if not exists done jsonb not null default '{}'::jsonb;
 
 -- This app has no login screen — the anon key is the only credential, used
 -- directly from the browser. RLS is enabled with a permissive policy so the

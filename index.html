@@ -310,7 +310,6 @@ const DATA = {
 
 const DAY_ORDER = ["A","B","C","D"];
 let current = "A";
-const doneState = {};
 
 // ---------- Persistence: Supabase (cross-device, real database) with localStorage as an offline backup ----------
 // 1) Fill these two lines in with your own Supabase project's values (Project Settings > API).
@@ -353,7 +352,7 @@ function lsListLogs(){
       if(k && k.startsWith(LS_PREFIX + 'log:')){
         const parts = k.slice((LS_PREFIX+'log:').length).split(':');
         const raw = window.localStorage.getItem(k);
-        try{ const parsed = JSON.parse(raw); out.push({ day: parts[0], date: parts[1], weights: parsed.weights||{}, cardio: parsed.cardio||{} }); }catch(e){}
+        try{ const parsed = JSON.parse(raw); out.push({ day: parts[0], date: parts[1], weights: parsed.weights||{}, cardio: parsed.cardio||{}, done: parsed.done||{} }); }catch(e){}
       }
     }
   }catch(e){}
@@ -363,9 +362,9 @@ function lsListLogs(){
 async function getLog(day, date){
   if(sb){
     try{
-      const { data, error } = await sb.from('workout_logs').select('weights,cardio').eq('day', day).eq('log_date', date).maybeSingle();
+      const { data, error } = await sb.from('workout_logs').select('weights,cardio,done').eq('day', day).eq('log_date', date).maybeSingle();
       if(!error && data){
-        const result = { weights: data.weights||{}, cardio: data.cardio||{minutes:"",machine:""} };
+        const result = { weights: data.weights||{}, cardio: data.cardio||{minutes:"",machine:""}, done: data.done||{} };
         lsSaveLog(day, date, result); // keep a local backup copy too
         return result;
       }
@@ -373,10 +372,10 @@ async function getLog(day, date){
   }
   if(hasLocalStorage){
     const local = lsGetLog(day, date);
-    if(local) return { weights: local.weights||{}, cardio: local.cardio||{minutes:"",machine:""} };
+    if(local) return { weights: local.weights||{}, cardio: local.cardio||{minutes:"",machine:""}, done: local.done||{} };
   }
   const mem = memStore[`log:${day}:${date}`];
-  return mem || { weights:{}, cardio:{ minutes:"", machine:"" } };
+  return mem || { weights:{}, cardio:{ minutes:"", machine:"" }, done:{} };
 }
 
 async function saveLog(day, date, logObj){
@@ -385,7 +384,7 @@ async function saveLog(day, date, logObj){
   if(sb){
     try{
       await sb.from('workout_logs').upsert(
-        { day, log_date: date, weights: logObj.weights, cardio: logObj.cardio, updated_at: new Date().toISOString() },
+        { day, log_date: date, weights: logObj.weights, cardio: logObj.cardio, done: logObj.done, updated_at: new Date().toISOString() },
         { onConflict: 'day,log_date' }
       );
     }catch(e){ /* saved locally at least; will not sync until back online */ }
@@ -395,9 +394,9 @@ async function saveLog(day, date, logObj){
 async function listAllLogs(){
   if(sb){
     try{
-      const { data, error } = await sb.from('workout_logs').select('day,log_date,weights,cardio').order('log_date',{ascending:false});
+      const { data, error } = await sb.from('workout_logs').select('day,log_date,weights,cardio,done').order('log_date',{ascending:false});
       if(!error && data && data.length){
-        return data.map(r => ({ day: r.day, date: r.log_date, weights: r.weights||{}, cardio: r.cardio||{} }));
+        return data.map(r => ({ day: r.day, date: r.log_date, weights: r.weights||{}, cardio: r.cardio||{}, done: r.done||{} }));
       }
     }catch(e){ /* fall back to local */ }
   }
@@ -461,9 +460,9 @@ function renderTabs(){
   });
 }
 
-function warmCard(day, ex, idx){
+function warmCard(day, ex, idx, doneMap){
   const key = `${day}-warm-${idx}`;
-  const isDone = !!doneState[key];
+  const isDone = !!doneMap[`warm-${idx}`];
   return `
     <div class="card warm-card ${isDone?'done':''}" data-key="${key}">
       <div class="check">${checkIcon()}</div>
@@ -475,9 +474,9 @@ function warmCard(day, ex, idx){
     </div>`;
 }
 
-function strengthCard(day, ex, idx, kgValue){
+function strengthCard(day, ex, idx, kgValue, doneMap){
   const key = `${day}-strength-${idx}`;
-  const isDone = !!doneState[key];
+  const isDone = !!doneMap[`strength-${idx}`];
   return `
     <div class="card ${isDone?'done':''}" data-key="${key}">
       <div class="card-top">
@@ -531,10 +530,11 @@ async function renderMain(){
   const d = DATA[day];
   const date = todayStr();
   const log = await getLog(day, date);
+  const doneMap = log.done || {};
 
   const total = d.warmup.length + d.strength.length;
-  const doneCount = [...d.warmup.keys()].filter(i=>doneState[`${day}-warm-${i}`]).length
-                  + [...d.strength.keys()].filter(i=>doneState[`${day}-strength-${i}`]).length;
+  const doneCount = [...d.warmup.keys()].filter(i=>doneMap[`warm-${i}`]).length
+                  + [...d.strength.keys()].filter(i=>doneMap[`strength-${i}`]).length;
 
   mainEl.innerHTML = `
     <div class="day-head">
@@ -542,24 +542,27 @@ async function renderMain(){
       <div class="progress">${doneCount}/${total}</div>
     </div>
 
-    ${!sb ? `<div class="storage-note">${hasLocalStorage ? 'Aún no está conectado a Supabase: los kg y el cardio se están guardando solo en este navegador (no viajarán a otro dispositivo) hasta que rellenes SUPABASE_URL y SUPABASE_ANON_KEY en el archivo.' : 'Este navegador no permite guardar datos, así que los kg y el cardio de hoy no se guardarán al cerrar la página.'}</div>` : ''}
+    ${!sb ? `<div class="storage-note">${hasLocalStorage ? 'Aún no está conectado a Supabase: los kg, el cardio y los check se están guardando solo en este navegador (no viajarán a otro dispositivo) hasta que rellenes SUPABASE_URL y SUPABASE_ANON_KEY en el archivo.' : 'Este navegador no permite guardar datos, así que los kg, el cardio y los check de hoy no se guardarán al cerrar la página.'}</div>` : ''}
 
     <div class="section-label warm">Calentamiento</div>
-    ${d.warmup.map((ex,i)=>warmCard(day, ex, i)).join('')}
+    ${d.warmup.map((ex,i)=>warmCard(day, ex, i, doneMap)).join('')}
 
     <div class="section-label strength">Entrenamiento de fuerza</div>
-    ${d.strength.map((ex,i)=>strengthCard(day, ex, i, log.weights[i])).join('')}
+    ${d.strength.map((ex,i)=>strengthCard(day, ex, i, log.weights[i], doneMap)).join('')}
 
     <div class="section-label cardio">Cardio</div>
     ${cardioCard(day, log.cardio)}
   `;
 
   mainEl.querySelectorAll('.check').forEach(chk=>{
-    chk.addEventListener('click', (e)=>{
-      const card = e.target.closest('.card');
-      const key = card.dataset.key;
-      doneState[key] = !doneState[key];
-      renderMain();
+    chk.addEventListener('click', async ()=>{
+      const card = chk.closest('.card');
+      const subKey = card.dataset.key.slice(day.length + 1); // strip "${day}-" prefix -> "warm-0" / "strength-2"
+      const fresh = await getLog(day, date);
+      fresh.done = fresh.done || {};
+      fresh.done[subKey] = !fresh.done[subKey];
+      await saveLog(day, date, fresh);
+      await renderMain();
     });
   });
 
