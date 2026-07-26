@@ -34,7 +34,7 @@
   .title span{ color: var(--volt); }
   .subtitle{ color: var(--ink-dim); font-size: 12px; margin-top: 2px; font-weight:500; }
 
-  .tabs{ display:grid; grid-template-columns: repeat(5,1fr); gap:6px; margin-top: 12px; }
+  .tabs{ display:grid; grid-template-columns: repeat(3,1fr); gap:6px; margin-top: 12px; }
   .tab{
     background: var(--card); border:1px solid var(--card-border); color: var(--ink-dim);
     border-radius: 10px; padding: 8px 2px; text-align:center; font-weight:700; font-size: 11.5px;
@@ -137,16 +137,20 @@
 
   .ex-body{ padding:12px 14px; }
 
-  .kg-chip{
-    display:flex; align-items:center; gap:5px; background:#17181a; border:1.5px solid var(--volt);
-    border-radius:7px; padding:3px 6px 3px 8px;
+  .sets-grid{ margin-top:9px; display:flex; flex-direction:column; gap:6px; }
+  .set-row{ display:flex; align-items:center; gap:6px; background:#17181a; border:1px solid var(--line); border-radius:8px; padding:5px 8px; }
+  .set-row .set-label{ font-size:11px; color:var(--ink-dim); font-weight:700; width:50px; flex:0 0 auto; }
+  .set-row input{ width:100%; min-width:0; background:transparent; border:0; color:var(--ink); font-size:13px; font-weight:700; font-family:'Inter',sans-serif; text-align:center; padding:4px 2px; }
+  .set-row input:focus{ outline:none; }
+  .set-row .unit{ font-size:10px; color:var(--ink-dim); flex:0 0 auto; }
+  .set-row .sep{ color:var(--ink-dim); font-size:12px; flex:0 0 auto; }
+
+  .note-input{
+    margin-top:8px; width:100%; background:#17181a; border:1.5px solid var(--line); border-radius:8px;
+    color:var(--ink); font-size:13px; padding:8px 10px; font-family:'Inter',sans-serif;
   }
-  .kg-chip label{ font-size:10px; color: var(--volt); font-weight:700; }
-  .kg-mini{
-    width:32px; background:transparent; border:0; color:var(--ink); font-size:13px; font-weight:700;
-    font-family:'Inter',sans-serif; padding:2px 0; text-align:center;
-  }
-  .kg-mini:focus{ outline:none; }
+  .note-input:focus{ outline:none; border-color: var(--volt); }
+  .note-input::placeholder{ color: var(--ink-dim); }
 
   .video-btn{
     display:flex; align-items:center; justify-content:center; gap:6px;
@@ -165,10 +169,12 @@
   .hist-day{ margin-bottom: 16px; }
   .hist-date{ font-family:'Bebas Neue',sans-serif; font-size:16px; letter-spacing:.5px; color:var(--ink-dim); margin: 4px 2px 6px; display:flex; align-items:center; gap:8px; }
   .hist-date .chip{ font-family:'Inter',sans-serif; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:20px; background:var(--volt); color:#14150f; }
-  .hist-item{ display:flex; justify-content:space-between; font-size:13.5px; padding:6px 2px; border-bottom:1px solid var(--card-border); }
-  .hist-item:last-child{ border-bottom:none; }
+  .hist-item-block{ padding:6px 2px; border-bottom:1px solid var(--card-border); }
+  .hist-item-block:last-child{ border-bottom:none; }
+  .hist-item{ display:flex; justify-content:space-between; gap:10px; font-size:13.5px; }
   .hist-item .n{ font-weight:600; }
-  .hist-item .v{ font-weight:800; color: var(--ink); }
+  .hist-item .v{ font-weight:800; color: var(--ink); text-align:right; }
+  .hist-note{ font-size:12px; color:var(--ink-dim); font-style:italic; margin-top:2px; }
   .empty-hist{ color:var(--ink-dim); font-size:13px; text-align:center; padding: 30px 20px; }
 
   footer{ text-align:center; color: var(--ink-dim); font-size: 11px; margin-top: 26px; padding: 0 16px; }
@@ -226,7 +232,7 @@
   </div>
 </div>
 
-<footer>Toca <b>▢</b> para marcar un ejercicio hecho. Los kg y el cardio se guardan por día y quedan en <b>Historial</b>.</footer>
+<footer>Toca <b>▢</b> para marcar un ejercicio hecho. Los kg, reps, notas y el cardio se guardan por día y quedan en <b>Historial</b>.</footer>
 
 <script>
 // ---------- icon library (used when there's no real video thumbnail available) ----------
@@ -339,6 +345,7 @@ const DATA = {
 
 const DAY_ORDER = ["A","B","C","D"];
 let current = "A";
+let informesSelected = null;
 
 // ---------- Persistence: Supabase (cross-device, real database) with localStorage as an offline backup ----------
 // 1) Fill these two lines in with your own Supabase project's values (Project Settings > API).
@@ -381,7 +388,7 @@ function lsListLogs(){
       if(k && k.startsWith(LS_PREFIX + 'log:')){
         const parts = k.slice((LS_PREFIX+'log:').length).split(':');
         const raw = window.localStorage.getItem(k);
-        try{ const parsed = JSON.parse(raw); out.push({ day: parts[0], date: parts[1], weights: parsed.weights||{}, cardio: parsed.cardio||{}, done: parsed.done||{} }); }catch(e){}
+        try{ const parsed = JSON.parse(raw); out.push({ day: parts[0], date: parts[1], weights: parsed.weights||{}, cardio: parsed.cardio||{}, done: parsed.done||{}, sets: parsed.sets||{}, notes: parsed.notes||{} }); }catch(e){}
       }
     }
   }catch(e){}
@@ -391,9 +398,9 @@ function lsListLogs(){
 async function getLog(day, date){
   if(sb){
     try{
-      const { data, error } = await sb.from('workout_logs').select('weights,cardio,done').eq('day', day).eq('log_date', date).maybeSingle();
+      const { data, error } = await sb.from('workout_logs').select('weights,cardio,done,sets,notes').eq('day', day).eq('log_date', date).maybeSingle();
       if(!error && data){
-        const result = { weights: data.weights||{}, cardio: data.cardio||{minutes:"",machine:""}, done: data.done||{} };
+        const result = { weights: data.weights||{}, cardio: data.cardio||{minutes:"",machine:""}, done: data.done||{}, sets: data.sets||{}, notes: data.notes||{} };
         lsSaveLog(day, date, result); // keep a local backup copy too
         return result;
       }
@@ -401,10 +408,10 @@ async function getLog(day, date){
   }
   if(hasLocalStorage){
     const local = lsGetLog(day, date);
-    if(local) return { weights: local.weights||{}, cardio: local.cardio||{minutes:"",machine:""}, done: local.done||{} };
+    if(local) return { weights: local.weights||{}, cardio: local.cardio||{minutes:"",machine:""}, done: local.done||{}, sets: local.sets||{}, notes: local.notes||{} };
   }
   const mem = memStore[`log:${day}:${date}`];
-  return mem || { weights:{}, cardio:{ minutes:"", machine:"" }, done:{} };
+  return mem || { weights:{}, cardio:{ minutes:"", machine:"" }, done:{}, sets:{}, notes:{} };
 }
 
 async function saveLog(day, date, logObj){
@@ -413,7 +420,7 @@ async function saveLog(day, date, logObj){
   if(sb){
     try{
       await sb.from('workout_logs').upsert(
-        { day, log_date: date, weights: logObj.weights, cardio: logObj.cardio, done: logObj.done, updated_at: new Date().toISOString() },
+        { day, log_date: date, weights: logObj.weights, cardio: logObj.cardio, done: logObj.done, sets: logObj.sets||{}, notes: logObj.notes||{}, updated_at: new Date().toISOString() },
         { onConflict: 'day,log_date' }
       );
     }catch(e){ /* saved locally at least; will not sync until back online */ }
@@ -423,9 +430,9 @@ async function saveLog(day, date, logObj){
 async function listAllLogs(){
   if(sb){
     try{
-      const { data, error } = await sb.from('workout_logs').select('day,log_date,weights,cardio,done').order('log_date',{ascending:false});
+      const { data, error } = await sb.from('workout_logs').select('day,log_date,weights,cardio,done,sets,notes').order('log_date',{ascending:false});
       if(!error && data && data.length){
-        return data.map(r => ({ day: r.day, date: r.log_date, weights: r.weights||{}, cardio: r.cardio||{}, done: r.done||{} }));
+        return data.map(r => ({ day: r.day, date: r.log_date, weights: r.weights||{}, cardio: r.cardio||{}, done: r.done||{}, sets: r.sets||{}, notes: r.notes||{} }));
       }
     }catch(e){ /* fall back to local */ }
   }
@@ -483,7 +490,8 @@ function renderTabs(){
     <div class="tab ${k===current?'active':''}" data-day="${k}">${DATA[k].label}<small>${DATA[k].sub}</small></div>
   `).join('');
   const histTab = `<div class="tab ${current==='HIST'?'active':''}" data-day="HIST">Historial<small>datos</small></div>`;
-  tabsEl.innerHTML = dayTabs + histTab;
+  const informesTab = `<div class="tab ${current==='INFORMES'?'active':''}" data-day="INFORMES">Informes<small>gráficos</small></div>`;
+  tabsEl.innerHTML = dayTabs + histTab + informesTab;
   tabsEl.querySelectorAll('.tab').forEach(t=>{
     t.addEventListener('click', ()=>{ current = t.dataset.day; renderTabs(); renderMain(); });
   });
@@ -509,9 +517,22 @@ function warmCard(day, ex, idx, doneMap){
     </div>`;
 }
 
-function strengthCard(day, ex, idx, kgValue, doneMap){
+function strengthCard(day, ex, idx, setsArr, noteVal, doneMap){
   const key = `${day}-strength-${idx}`;
   const isDone = !!doneMap[`strength-${idx}`];
+  const numSets = parseInt(ex.series, 10) || 1;
+  const setRows = Array.from({length: numSets}).map((_,si)=>{
+    const s = setsArr[si] || {};
+    return `
+      <div class="set-row">
+        <span class="set-label">Serie ${si+1}</span>
+        <input type="number" inputmode="decimal" min="0" step="0.5" placeholder="0" value="${s.kg||''}" data-ex-idx="${idx}" data-set-i="${si}" data-field="kg" aria-label="Kg serie ${si+1} de ${escapeAttr(ex.name)}">
+        <span class="unit">kg</span>
+        <span class="sep">×</span>
+        <input type="number" inputmode="numeric" min="0" step="1" placeholder="${escapeAttr(ex.rep)}" value="${s.reps||''}" data-ex-idx="${idx}" data-set-i="${si}" data-field="reps" aria-label="Reps serie ${si+1} de ${escapeAttr(ex.name)}">
+        <span class="unit">reps</span>
+      </div>`;
+  }).join('');
   return `
     <div class="card ex-card ${isDone?'done':''}" data-key="${key}">
       <div class="ex-photo-wrap">
@@ -529,11 +550,9 @@ function strengthCard(day, ex, idx, kgValue, doneMap){
           <div class="stat"><b>Reps</b>${ex.rep}</div>
           <div class="stat"><b>Descanso</b>${ex.recp}</div>
           <div class="stat"><b>Int.</b>${ex.int}</div>
-          <div class="kg-chip">
-            <label>Kg</label>
-            <input class="kg-mini" type="number" inputmode="decimal" min="0" step="0.5" placeholder="0" value="${kgValue||''}" data-kg-idx="${idx}">
-          </div>
         </div>
+        <div class="sets-grid">${setRows}</div>
+        <input class="note-input" type="text" placeholder="Notas (opcional)" value="${escapeAttr(noteVal)}" data-note-idx="${idx}">
         <a class="video-btn" href="${ex.video}" target="_blank" rel="noopener">${playIcon()}<span>Ver vídeo</span></a>
       </div>
     </div>`;
@@ -572,6 +591,7 @@ function cardioCard(day, cardio){
 
 async function renderMain(){
   if(current === 'HIST'){ await renderHistory(); return; }
+  if(current === 'INFORMES'){ await renderInformes(); return; }
 
   const day = current;
   const d = DATA[day];
@@ -595,7 +615,7 @@ async function renderMain(){
     ${pendingFirst(d.warmup, 'warm', doneMap).map(i=>warmCard(day, d.warmup[i], i, doneMap)).join('')}
 
     <div class="section-label strength">Entrenamiento de fuerza</div>
-    ${pendingFirst(d.strength, 'strength', doneMap).map(i=>strengthCard(day, d.strength[i], i, log.weights[i], doneMap)).join('')}
+    ${pendingFirst(d.strength, 'strength', doneMap).map(i=>strengthCard(day, d.strength[i], i, log.sets[i]||[], log.notes[i]||'', doneMap)).join('')}
 
     <div class="section-label cardio">Cardio</div>
     ${cardioCard(day, log.cardio)}
@@ -627,11 +647,26 @@ async function renderMain(){
     });
   });
 
-  mainEl.querySelectorAll('[data-kg-idx]').forEach(inp=>{
+  mainEl.querySelectorAll('[data-ex-idx][data-set-i]').forEach(inp=>{
     inp.addEventListener('change', async ()=>{
-      const idx = inp.dataset.kgIdx;
+      const idx = inp.dataset.exIdx;
+      const setI = Number(inp.dataset.setI);
+      const field = inp.dataset.field;
       const fresh = await getLog(day, date);
-      fresh.weights[idx] = inp.value;
+      fresh.sets = fresh.sets || {};
+      const arr = fresh.sets[idx] || [];
+      arr[setI] = { ...arr[setI], [field]: inp.value };
+      fresh.sets[idx] = arr;
+      await saveLog(day, date, fresh);
+    });
+  });
+
+  mainEl.querySelectorAll('[data-note-idx]').forEach(inp=>{
+    inp.addEventListener('change', async ()=>{
+      const idx = inp.dataset.noteIdx;
+      const fresh = await getLog(day, date);
+      fresh.notes = fresh.notes || {};
+      fresh.notes[idx] = inp.value;
       await saveLog(day, date, fresh);
     });
   });
@@ -645,6 +680,74 @@ async function renderMain(){
   }
   if(minutesEl) minutesEl.addEventListener('change', saveCardio);
   if(machineEl) machineEl.addEventListener('change', saveCardio);
+}
+
+function mondayOf(dateStr){
+  const d = new Date(dateStr + 'T00:00:00');
+  const dow = (d.getDay() + 6) % 7; // Mon=0..Sun=6
+  d.setDate(d.getDate() - dow);
+  return d;
+}
+function dateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function isoWeekKey(dateStr){ return dateKey(mondayOf(dateStr)); }
+function lastNWeekKeys(n){
+  const mondayToday = mondayOf(todayStr());
+  const out = [];
+  for(let i=n-1;i>=0;i--){
+    const d = new Date(mondayToday);
+    d.setDate(mondayToday.getDate() - i*7);
+    out.push(dateKey(d));
+  }
+  return out;
+}
+function weekLabel(weekKey){
+  const d = new Date(weekKey + 'T00:00:00');
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+
+function svgLineChart(points, color, unit){
+  const W = 280, H = 100, padTop = 14, padBottom = 14;
+  const values = points.map(p=>p.value);
+  const min = Math.min(...values), max = Math.max(...values);
+  const range = (max - min) || 1;
+  const stepX = points.length > 1 ? (W-20)/(points.length-1) : 0;
+  const coords = points.map((p,i)=>({
+    x: 10 + i*stepX,
+    y: H - padBottom - ((p.value - min)/range) * (H - padTop - padBottom),
+    ...p
+  }));
+  const poly = coords.map(c=>`${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ');
+  const dots = coords.map((c,i)=>{
+    const isLast = i === coords.length - 1;
+    return `<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${isLast?5:4}" fill="${color}" stroke="#17181a" stroke-width="2"><title>${escapeAttr(c.date)}: ${c.value}${unit}</title></circle>`;
+  }).join('');
+  const lastPoint = coords[coords.length-1];
+  const lastLabel = `<text x="${lastPoint.x.toFixed(1)}" y="${(lastPoint.y-8).toFixed(1)}" font-size="10" font-weight="700" fill="#f2f1ec" text-anchor="end">${lastPoint.value}${unit}</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%; display:block;">
+    <line x1="0" y1="${padTop}" x2="${W}" y2="${padTop}" stroke="#2d2e33" stroke-width="1"/>
+    <line x1="0" y1="${H-padBottom}" x2="${W}" y2="${H-padBottom}" stroke="#2d2e33" stroke-width="1"/>
+    <polyline points="${poly}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    ${dots}
+    ${lastLabel}
+  </svg>`;
+}
+
+function svgBarChart(bars, color, unit){
+  const W = 280, H = 90, gap = 8;
+  const n = bars.length;
+  const barW = (W - gap*(n+1)) / n;
+  const max = Math.max(...bars.map(b=>b.value), 1);
+  const rects = bars.map((b,i)=>{
+    const h = Math.max(3, (b.value/max) * (H-14));
+    const x = gap + i*(barW+gap);
+    const y = H - h;
+    return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="${color}"><title>${escapeAttr(b.label)}: ${b.value}${unit}</title></rect>`;
+  }).join('');
+  const labels = bars.map((b,i)=>{
+    const x = gap + i*(barW+gap) + barW/2;
+    return `<text x="${x.toFixed(1)}" y="${H+11}" font-size="9" fill="#9b9ba3" text-anchor="middle">${escapeAttr(b.label)}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${W} ${H+16}" style="width:100%; display:block;">${rects}${labels}</svg>`;
 }
 
 async function renderHistory(){
@@ -661,20 +764,106 @@ async function renderHistory(){
 
   body.innerHTML = entries.map(e=>{
     const d = DATA[e.day];
-    const weightRows = Object.entries(e.weights)
+    // Legacy entries (pre-sets/reps/notes) only ever have a single kg per exercise in "weights".
+    const weightRows = Object.entries(e.weights || {})
       .filter(([idx,val]) => val !== undefined && val !== null && val !== "")
-      .map(([idx,val]) => `<div class="hist-item"><span class="n">${d.strength[idx] ? d.strength[idx].name : ('Ejercicio '+idx)}</span><span class="v">${val} kg</span></div>`)
+      .map(([idx,val]) => `<div class="hist-item-block"><div class="hist-item"><span class="n">${d.strength[idx] ? d.strength[idx].name : ('Ejercicio '+idx)}</span><span class="v">${val} kg</span></div></div>`)
+      .join('');
+    const setsRows = Object.entries(e.sets || {})
+      .filter(([idx,arr]) => Array.isArray(arr) && arr.some(s => s && (s.kg || s.reps)))
+      .map(([idx,arr])=>{
+        const name = d.strength[idx] ? d.strength[idx].name : ('Ejercicio '+idx);
+        const setsText = arr.filter(s => s && (s.kg || s.reps)).map(s => `${s.kg||'-'}kg×${s.reps||'-'}`).join(' · ');
+        const note = e.notes && e.notes[idx] ? `<div class="hist-note">${escapeAttr(e.notes[idx])}</div>` : '';
+        return `<div class="hist-item-block"><div class="hist-item"><span class="n">${name}</span><span class="v">${setsText}</span></div>${note}</div>`;
+      })
       .join('');
     const cardioRow = (e.cardio && (e.cardio.minutes || e.cardio.machine))
-      ? `<div class="hist-item"><span class="n">Cardio ${e.cardio.machine||''}</span><span class="v">${e.cardio.minutes||'0'} min</span></div>`
+      ? `<div class="hist-item-block"><div class="hist-item"><span class="n">Cardio ${e.cardio.machine||''}</span><span class="v">${e.cardio.minutes||'0'} min</span></div></div>`
       : '';
-    const body2 = weightRows + cardioRow;
+    const body2 = weightRows + setsRows + cardioRow;
     return `
       <div class="hist-day">
         <div class="hist-date">${e.date} <span class="chip">${d.label} · ${d.sub}</span></div>
         ${body2 || '<div class="empty-hist" style="padding:10px 2px;">Sin datos guardados ese día.</div>'}
       </div>`;
   }).join('');
+}
+
+async function renderInformes(){
+  mainEl.innerHTML = `<div class="day-head"><h2>Informes</h2></div><div id="informes-body"></div>`;
+  const body = mainEl.querySelector('#informes-body');
+
+  const exerciseList = [];
+  DAY_ORDER.forEach(day=>{
+    DATA[day].strength.forEach((ex,idx)=>{ exerciseList.push({ day, idx, name: ex.name }); });
+  });
+
+  const logs = await listAllLogs();
+
+  const defaultKey = `${exerciseList[0].day}:${exerciseList[0].idx}`;
+  const selectedKey = informesSelected && exerciseList.some(e=>`${e.day}:${e.idx}` === informesSelected) ? informesSelected : defaultKey;
+  const [selDay, selIdxStr] = selectedKey.split(':');
+  const selIdx = Number(selIdxStr);
+
+  const history = logs
+    .filter(l => l.day === selDay && l.sets && l.sets[selIdx])
+    .map(l => {
+      const setsArr = (l.sets[selIdx] || []).filter(s => s && (s.kg || s.reps));
+      if(!setsArr.length) return null;
+      const top = setsArr.reduce((best,s) => (parseFloat(s.kg)||0) > (parseFloat(best.kg)||0) ? s : best, setsArr[0]);
+      return { date: l.date, kg: parseFloat(top.kg)||0, reps: parseFloat(top.reps)||0 };
+    })
+    .filter(Boolean)
+    .sort((a,b) => a.date.localeCompare(b.date));
+
+  const maxKg = history.length ? Math.max(...history.map(h=>h.kg)) : null;
+  const last = history.length ? history[history.length-1] : null;
+
+  const weeks = lastNWeekKeys(8);
+  const cardioByWeek = {};
+  weeks.forEach(w => cardioByWeek[w] = 0);
+  logs.forEach(l => {
+    const mins = Number(l.cardio && l.cardio.minutes) || 0;
+    if(!mins) return;
+    const wk = isoWeekKey(l.date);
+    if(wk in cardioByWeek) cardioByWeek[wk] += mins;
+  });
+  const cardioBars = weeks.map(w => ({ label: weekLabel(w), value: cardioByWeek[w] }));
+
+  const emptyMsg = '<div class="empty-hist" style="padding:16px 4px;">Aún no hay sesiones guardadas de este ejercicio.</div>';
+
+  body.innerHTML = `
+    <div class="section-label strength">Progresión por ejercicio</div>
+    <select class="kg-input" id="informes-exercise-select" style="margin-bottom:10px;">
+      ${exerciseList.map(e=>`<option value="${e.day}:${e.idx}" ${e.day===selDay && e.idx===selIdx ? 'selected' : ''}>${escapeAttr(e.name)}</option>`).join('')}
+    </select>
+
+    <div class="card">
+      <div class="ex-name" style="font-size:12px; color:var(--ink-dim); margin-bottom:6px;">Peso de la serie más pesada</div>
+      ${history.length ? svgLineChart(history.map(h=>({date:h.date, value:h.kg})), '#d4ff3d', ' kg') : emptyMsg}
+      ${history.length ? `
+        <div class="stats" style="justify-content:space-between;">
+          <div class="stat"><b>Máximo</b>${maxKg} kg</div>
+          <div class="stat"><b>Última</b>${last.kg} kg · ${last.date}</div>
+        </div>` : ''}
+    </div>
+
+    <div class="card">
+      <div class="ex-name" style="font-size:12px; color:var(--ink-dim); margin-bottom:6px;">Repeticiones de la serie más pesada</div>
+      ${history.length ? svgLineChart(history.map(h=>({date:h.date, value:h.reps})), '#33d9c4', ' reps') : emptyMsg}
+    </div>
+
+    <div class="section-label cardio">Cardio semanal</div>
+    <div class="card">
+      ${svgBarChart(cardioBars, '#ffb547', ' min')}
+    </div>
+  `;
+
+  body.querySelector('#informes-exercise-select').addEventListener('change', (e)=>{
+    informesSelected = e.target.value;
+    renderInformes();
+  });
 }
 
 renderTabs();

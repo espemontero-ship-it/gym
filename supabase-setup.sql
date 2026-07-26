@@ -15,6 +15,13 @@ create table if not exists workout_logs (
 -- "done" column, used to persist which exercises are checked off), add it now.
 alter table workout_logs add column if not exists done jsonb not null default '{}'::jsonb;
 
+-- "sets" replaces the old single-value "weights" column going forward: it holds,
+-- per exercise index, an array of {kg, reps} — one entry per prescribed set.
+-- "notes" holds a short free-text note per exercise index. Old rows keep using
+-- "weights" as-is (single kg per exercise, no reps/notes) and are left untouched.
+alter table workout_logs add column if not exists sets jsonb not null default '{}'::jsonb;
+alter table workout_logs add column if not exists notes jsonb not null default '{}'::jsonb;
+
 -- This app has no login screen — the anon key is the only credential, used
 -- directly from the browser. RLS is enabled with a permissive policy so the
 -- page can read/write its own log rows; there's nothing sensitive here beyond
