@@ -363,6 +363,10 @@ const DATA = {
 
 const DAY_ORDER = ["A","B","C","D"];
 let current = "A";
+// Bumped on every renderMain call; async fetches check it against the value they started
+// with so a slow, stale render (e.g. tapping another tab before Supabase replies) never
+// overwrites the screen after a newer one already landed.
+let renderToken = 0;
 
 // ---------- Persistence: Supabase only (cross-device, real database) — see syncError below for failure handling ----------
 // 1) Fill these two lines in with your own Supabase project's values (Project Settings > API).
@@ -612,8 +616,9 @@ function refreshSyncBanner(){
 }
 
 async function renderMain(){
-  if(current === 'HIST'){ await renderHistory(); return; }
-  if(current === 'INFORMES'){ await renderInformes(); return; }
+  const token = ++renderToken;
+  if(current === 'HIST'){ await renderHistory(token); return; }
+  if(current === 'INFORMES'){ await renderInformes(token); return; }
 
   const day = current;
   const d = DATA[day];
@@ -621,6 +626,7 @@ async function renderMain(){
   const log = await getLog(day, date);
   const doneMap = log.done || {};
   const prevBest = await getPrevBestSets(day, date);
+  if(token !== renderToken) return; // a newer render started while we were waiting on these
 
   const total = d.warmup.length + d.strength.length;
   const doneCount = [...d.warmup.keys()].filter(i=>doneMap[`warm-${i}`]).length
@@ -732,9 +738,10 @@ function weekLabel(weekKey){
   return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
 }
 
-async function renderHistory(){
+async function renderHistory(token){
   const entries = await listAllLogs();
   entries.sort((a,b)=> b.date.localeCompare(a.date));
+  if(token !== renderToken) return;
 
   mainEl.innerHTML = `<div class="day-head"><h2>Historial</h2></div>${syncError ? `<div class="storage-note sync-error">${syncError}</div>` : ''}<div id="hist-body"></div>`;
   const body = mainEl.querySelector('#hist-body');
@@ -772,8 +779,9 @@ async function renderHistory(){
   }).join('');
 }
 
-async function renderInformes(){
+async function renderInformes(token){
   const logs = await listAllLogs();
+  if(token !== renderToken) return;
 
   mainEl.innerHTML = `<div class="day-head"><h2>Informes</h2></div>${syncError ? `<div class="storage-note sync-error">${syncError}</div>` : ''}<div id="informes-body"></div>`;
   const body = mainEl.querySelector('#informes-body');
@@ -850,7 +858,7 @@ async function renderInformes(){
       arr[setI] = { ...arr[setI], [field]: value };
       fresh.sets[idx] = arr;
       await saveLog(day, date, fresh);
-      await renderInformes();
+      await renderMain();
     });
   });
 }
