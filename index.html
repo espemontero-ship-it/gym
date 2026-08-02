@@ -293,6 +293,12 @@ function escapeAttr(value){
   return String(value || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+// Kg is stored with a "." decimal (so parseFloat elsewhere stays reliable) but shown with a
+// "," — the convention a Spanish keyboard's decimal key actually types, and what <input type="number">
+// silently rejects, which is why entering e.g. "27,5" used to read back wrong.
+function fmtKg(v){ return String(v==null ? '' : v).replace('.', ','); }
+function normKg(v){ return String(v==null ? '' : v).trim().replace(',', '.'); }
+
 const DATA = {
   A: { label:"Día A", sub:"Tren inferior",
     warmup:[
@@ -500,13 +506,13 @@ function strengthCard(day, ex, idx, setsArr, noteVal, doneMap, prevBest){
   const key = `${day}-strength-${idx}`;
   const isDone = !!doneMap[`strength-${idx}`];
   const numSets = parseInt(ex.series, 10) || 1;
-  const prevText = prevBest ? `${prevBest.kg||'-'}kg×${prevBest.reps||'-'}` : 'Sin datos';
+  const prevText = prevBest ? `${fmtKg(prevBest.kg)||'-'}kg×${prevBest.reps||'-'}` : 'Sin datos';
   const setRows = Array.from({length: numSets}).map((_,si)=>{
     const s = setsArr[si] || {};
     return `
       <div class="set-row">
         <span class="set-label">Serie ${si+1}</span>
-        <input type="number" inputmode="decimal" min="0" step="0.5" placeholder="0" value="${s.kg||''}" data-ex-idx="${idx}" data-set-i="${si}" data-field="kg" aria-label="Kg serie ${si+1} de ${escapeAttr(ex.name)}">
+        <input type="text" inputmode="decimal" placeholder="0" value="${fmtKg(s.kg)}" data-ex-idx="${idx}" data-set-i="${si}" data-field="kg" aria-label="Kg serie ${si+1} de ${escapeAttr(ex.name)}">
         <span class="unit">kg</span>
         <span class="sep">×</span>
         <input type="number" inputmode="numeric" min="0" step="1" placeholder="${escapeAttr(ex.rep)}" value="${s.reps||''}" data-ex-idx="${idx}" data-set-i="${si}" data-field="reps" aria-label="Reps serie ${si+1} de ${escapeAttr(ex.name)}">
@@ -669,10 +675,11 @@ async function renderMain(){
       const idx = inp.dataset.exIdx;
       const setI = Number(inp.dataset.setI);
       const field = inp.dataset.field;
+      const value = field === 'kg' ? normKg(inp.value) : inp.value;
       const fresh = await getLog(day, date);
       fresh.sets = fresh.sets || {};
       const arr = fresh.sets[idx] || [];
-      arr[setI] = { ...arr[setI], [field]: inp.value };
+      arr[setI] = { ...arr[setI], [field]: value };
       fresh.sets[idx] = arr;
       await saveLog(day, date, fresh);
       refreshSyncBanner();
@@ -742,13 +749,13 @@ async function renderHistory(){
     // Legacy entries (pre-sets/reps/notes) only ever have a single kg per exercise in "weights".
     const weightRows = Object.entries(e.weights || {})
       .filter(([idx,val]) => val !== undefined && val !== null && val !== "")
-      .map(([idx,val]) => `<div class="hist-item-block"><div class="hist-item"><span class="n">${d.strength[idx] ? d.strength[idx].name : ('Ejercicio '+idx)}</span><span class="v">${val} kg</span></div></div>`)
+      .map(([idx,val]) => `<div class="hist-item-block"><div class="hist-item"><span class="n">${d.strength[idx] ? d.strength[idx].name : ('Ejercicio '+idx)}</span><span class="v">${fmtKg(val)} kg</span></div></div>`)
       .join('');
     const setsRows = Object.entries(e.sets || {})
       .filter(([idx,arr]) => Array.isArray(arr) && arr.some(s => s && (s.kg || s.reps)))
       .map(([idx,arr])=>{
         const name = d.strength[idx] ? d.strength[idx].name : ('Ejercicio '+idx);
-        const setsText = arr.filter(s => s && (s.kg || s.reps)).map(s => `${s.kg||'-'}kg×${s.reps||'-'}`).join(' · ');
+        const setsText = arr.filter(s => s && (s.kg || s.reps)).map(s => `${fmtKg(s.kg)||'-'}kg×${s.reps||'-'}`).join(' · ');
         const note = e.notes && e.notes[idx] ? `<div class="hist-note">${escapeAttr(e.notes[idx])}</div>` : '';
         return `<div class="hist-item-block"><div class="hist-item"><span class="n">${name}</span><span class="v">${setsText}</span></div>${note}</div>`;
       })
@@ -791,7 +798,7 @@ async function renderInformes(){
 
     const rows = history.length
       ? history.map(h => `<tr><td>${h.date}</td><td>Serie ${h.setNum}</td>` +
-          `<td class="num"><input class="info-input" type="number" inputmode="decimal" min="0" step="0.5" value="${h.kg}" data-day="${h.day}" data-date="${h.date}" data-idx="${h.idx}" data-set-i="${h.setNum-1}" data-field="kg" aria-label="Kg, ${escapeAttr(name)}, serie ${h.setNum}, ${h.date}"></td>` +
+          `<td class="num"><input class="info-input" type="text" inputmode="decimal" value="${fmtKg(h.kg)}" data-day="${h.day}" data-date="${h.date}" data-idx="${h.idx}" data-set-i="${h.setNum-1}" data-field="kg" aria-label="Kg, ${escapeAttr(name)}, serie ${h.setNum}, ${h.date}"></td>` +
           `<td class="num"><input class="info-input" type="number" inputmode="numeric" min="0" step="1" value="${h.reps}" data-day="${h.day}" data-date="${h.date}" data-idx="${h.idx}" data-set-i="${h.setNum-1}" data-field="reps" aria-label="Reps, ${escapeAttr(name)}, serie ${h.setNum}, ${h.date}"></td></tr>`)
         .join('')
       : `<tr><td colspan="4" style="color:var(--ink-dim); text-align:center; padding:10px 0;">Sin sesiones registradas</td></tr>`;
@@ -836,10 +843,11 @@ async function renderInformes(){
       const idx = inp.dataset.idx;
       const setI = Number(inp.dataset.setI);
       const field = inp.dataset.field;
+      const value = field === 'kg' ? normKg(inp.value) : inp.value;
       const fresh = await getLog(day, date);
       fresh.sets = fresh.sets || {};
       const arr = fresh.sets[idx] || [];
-      arr[setI] = { ...arr[setI], [field]: inp.value };
+      arr[setI] = { ...arr[setI], [field]: value };
       fresh.sets[idx] = arr;
       await saveLog(day, date, fresh);
       await renderInformes();
