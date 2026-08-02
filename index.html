@@ -182,6 +182,11 @@
   .info-table td{ padding:5px 6px; border-bottom:1px solid var(--card-border); color:var(--ink); }
   .info-table tr:last-child td{ border-bottom:0; }
   .info-table td.num{ text-align:right; font-weight:700; }
+  .info-input{
+    width:44px; background:transparent; border:1px solid var(--line); border-radius:6px; color:var(--ink);
+    font-size:12.5px; font-weight:700; font-family:'Inter',sans-serif; text-align:right; padding:3px 4px;
+  }
+  .info-input:focus{ outline:none; border-color:var(--volt); }
 
   footer{ text-align:center; color: var(--ink-dim); font-size: 11px; margin-top: 26px; padding: 0 16px; }
   footer b{ color: var(--volt); }
@@ -778,24 +783,24 @@ async function renderInformes(){
   const exerciseBlocks = [...exerciseRefs.entries()].map(([name, refs])=>{
     const history = logs
       .flatMap(l => refs.filter(r => r.day === l.day && l.sets && l.sets[r.idx]).map(r=>({ l, idx: r.idx })))
-      .map(({l, idx}) => {
+      .flatMap(({l, idx}) => {
         const setsArr = (l.sets[idx] || []).filter(s => s && (s.kg || s.reps));
-        if(!setsArr.length) return null;
-        const top = setsArr.reduce((best,s) => (parseFloat(s.kg)||0) > (parseFloat(best.kg)||0) ? s : best, setsArr[0]);
-        return { date: l.date, kg: top.kg || '-', reps: top.reps || '-' };
+        return setsArr.map((s, si) => ({ date: l.date, day: l.day, idx, setNum: si+1, kg: s.kg||'', reps: s.reps||'' }));
       })
-      .filter(Boolean)
-      .sort((a,b) => b.date.localeCompare(a.date));
+      .sort((a,b) => b.date.localeCompare(a.date) || a.setNum - b.setNum);
 
     const rows = history.length
-      ? history.map(h => `<tr><td>${h.date}</td><td class="num">${h.kg}</td><td class="num">${h.reps}</td></tr>`).join('')
-      : `<tr><td colspan="3" style="color:var(--ink-dim); text-align:center; padding:10px 0;">Sin sesiones registradas</td></tr>`;
+      ? history.map(h => `<tr><td>${h.date}</td><td>Serie ${h.setNum}</td>` +
+          `<td class="num"><input class="info-input" type="number" inputmode="decimal" min="0" step="0.5" value="${h.kg}" data-day="${h.day}" data-date="${h.date}" data-idx="${h.idx}" data-set-i="${h.setNum-1}" data-field="kg" aria-label="Kg, ${escapeAttr(name)}, serie ${h.setNum}, ${h.date}"></td>` +
+          `<td class="num"><input class="info-input" type="number" inputmode="numeric" min="0" step="1" value="${h.reps}" data-day="${h.day}" data-date="${h.date}" data-idx="${h.idx}" data-set-i="${h.setNum-1}" data-field="reps" aria-label="Reps, ${escapeAttr(name)}, serie ${h.setNum}, ${h.date}"></td></tr>`)
+        .join('')
+      : `<tr><td colspan="4" style="color:var(--ink-dim); text-align:center; padding:10px 0;">Sin sesiones registradas</td></tr>`;
 
     return `
       <div class="card">
         <div class="ex-name" style="font-size:14px;">${name}</div>
         <table class="info-table">
-          <thead><tr><th>Fecha</th><th>Kg</th><th>Reps</th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Serie</th><th>Kg</th><th>Reps</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>`;
@@ -823,6 +828,23 @@ async function renderInformes(){
       </table>
     </div>
   `;
+
+  body.querySelectorAll('.info-input').forEach(inp=>{
+    inp.addEventListener('change', async ()=>{
+      const day = inp.dataset.day;
+      const date = inp.dataset.date;
+      const idx = inp.dataset.idx;
+      const setI = Number(inp.dataset.setI);
+      const field = inp.dataset.field;
+      const fresh = await getLog(day, date);
+      fresh.sets = fresh.sets || {};
+      const arr = fresh.sets[idx] || [];
+      arr[setI] = { ...arr[setI], [field]: inp.value };
+      fresh.sets[idx] = arr;
+      await saveLog(day, date, fresh);
+      await renderInformes();
+    });
+  });
 }
 
 renderTabs();
