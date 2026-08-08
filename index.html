@@ -654,10 +654,9 @@ async function renderMain(){
     chk.addEventListener('click', async ()=>{
       const card = chk.closest('.card');
       const subKey = card.dataset.key.slice(day.length + 1); // strip "${day}-" prefix -> "warm-0" / "strength-2"
-      const fresh = await getLog(day, date);
-      fresh.done = fresh.done || {};
-      fresh.done[subKey] = !fresh.done[subKey];
-      await saveLog(day, date, fresh);
+      log.done = log.done || {};
+      log.done[subKey] = !log.done[subKey];
+      await saveLog(day, date, log);
       await renderMain();
     });
   });
@@ -682,12 +681,10 @@ async function renderMain(){
       const setI = Number(inp.dataset.setI);
       const field = inp.dataset.field;
       const value = field === 'kg' ? normKg(inp.value) : inp.value;
-      const fresh = await getLog(day, date);
-      fresh.sets = fresh.sets || {};
-      const arr = fresh.sets[idx] || [];
+      log.sets = log.sets || {};
+      const arr = log.sets[idx] || (log.sets[idx] = []);
       arr[setI] = { ...arr[setI], [field]: value };
-      fresh.sets[idx] = arr;
-      await saveLog(day, date, fresh);
+      await saveLog(day, date, log);
       refreshSyncBanner();
     });
   });
@@ -695,10 +692,9 @@ async function renderMain(){
   mainEl.querySelectorAll('[data-note-idx]').forEach(inp=>{
     inp.addEventListener('change', async ()=>{
       const idx = inp.dataset.noteIdx;
-      const fresh = await getLog(day, date);
-      fresh.notes = fresh.notes || {};
-      fresh.notes[idx] = inp.value;
-      await saveLog(day, date, fresh);
+      log.notes = log.notes || {};
+      log.notes[idx] = inp.value;
+      await saveLog(day, date, log);
       refreshSyncBanner();
     });
   });
@@ -706,9 +702,8 @@ async function renderMain(){
   const minutesEl = mainEl.querySelector('#cardio-minutes');
   const machineEl = mainEl.querySelector('#cardio-machine');
   async function saveCardio(){
-    const fresh = await getLog(day, date);
-    fresh.cardio = { minutes: minutesEl.value, machine: machineEl.value };
-    await saveLog(day, date, fresh);
+    log.cardio = { minutes: minutesEl.value, machine: machineEl.value };
+    await saveLog(day, date, log);
     refreshSyncBanner();
   }
   if(minutesEl) minutesEl.addEventListener('change', saveCardio);
@@ -844,6 +839,12 @@ async function renderInformes(token){
     </div>
   `;
 
+  // Rows can share the same (day, date) log when several exercises were done the same
+  // session, so edits go through one cached object per key instead of re-fetching per
+  // field — re-fetching mid-edit is what was losing sets when several were fixed in a row.
+  const logCache = new Map();
+  logs.forEach(l => logCache.set(`${l.day}:${l.date}`, l));
+
   body.querySelectorAll('.info-input').forEach(inp=>{
     inp.addEventListener('change', async ()=>{
       const day = inp.dataset.day;
@@ -852,13 +853,14 @@ async function renderInformes(token){
       const setI = Number(inp.dataset.setI);
       const field = inp.dataset.field;
       const value = field === 'kg' ? normKg(inp.value) : inp.value;
-      const fresh = await getLog(day, date);
-      fresh.sets = fresh.sets || {};
-      const arr = fresh.sets[idx] || [];
+      const key = `${day}:${date}`;
+      let cached = logCache.get(key);
+      if(!cached){ cached = { weights:{}, cardio:{minutes:"",machine:""}, done:{}, sets:{}, notes:{} }; logCache.set(key, cached); }
+      cached.sets = cached.sets || {};
+      const arr = cached.sets[idx] || (cached.sets[idx] = []);
       arr[setI] = { ...arr[setI], [field]: value };
-      fresh.sets[idx] = arr;
-      await saveLog(day, date, fresh);
-      await renderMain();
+      await saveLog(day, date, cached);
+      refreshSyncBanner();
     });
   });
 }
