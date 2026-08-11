@@ -137,6 +137,12 @@
 
   .ex-body{ padding:12px 14px; }
 
+  .prev-history{
+    font-size:11.5px; color:var(--ink-dim); margin-top:9px; padding:6px 8px;
+    background:#17181a; border:1px solid var(--line); border-radius:8px; line-height:1.4;
+  }
+  .prev-history b{ color:var(--ink); font-weight:700; margin-right:4px; }
+
   .sets-grid{ margin-top:9px; display:flex; flex-direction:column; gap:6px; }
   .set-row{ display:flex; align-items:center; gap:6px; background:#17181a; border:1px solid var(--line); border-radius:8px; padding:5px 8px; }
   .set-row .set-label{ font-size:11px; color:var(--ink-dim); font-weight:700; width:50px; flex:0 0 auto; }
@@ -506,11 +512,18 @@ function warmCard(day, ex, idx, doneMap){
     </div>`;
 }
 
-function strengthCard(day, ex, idx, setsArr, noteVal, doneMap, prevBest){
+function shortDate(dateStr){
+  const parts = dateStr.split('-');
+  return `${parts[2]}/${parts[1]}`;
+}
+
+function strengthCard(day, ex, idx, setsArr, noteVal, doneMap, recentSessions){
   const key = `${day}-strength-${idx}`;
   const isDone = !!doneMap[`strength-${idx}`];
   const numSets = parseInt(ex.series, 10) || 1;
-  const prevText = prevBest ? `${fmtKg(prevBest.kg)||'-'}kg×${prevBest.reps||'-'}` : 'Sin datos';
+  const historyText = (recentSessions && recentSessions.length)
+    ? recentSessions.map(s => `${shortDate(s.date)}: ${fmtKg(s.kg)||'-'}kg×${s.reps||'-'}`).join(' · ')
+    : 'Sin sesiones previas';
   const setRows = Array.from({length: numSets}).map((_,si)=>{
     const s = setsArr[si] || {};
     return `
@@ -540,8 +553,8 @@ function strengthCard(day, ex, idx, setsArr, noteVal, doneMap, prevBest){
           <div class="stat"><b>Reps</b>${ex.rep}</div>
           <div class="stat"><b>Descanso</b>${ex.recp}</div>
           <div class="stat"><b>Int.</b>${ex.int}</div>
-          <div class="stat"><b>Ant.</b>${prevText}</div>
         </div>
+        <div class="prev-history"><b>Historial</b> ${historyText}</div>
         <div class="sets-grid">${setRows}</div>
         <input class="note-input" type="text" placeholder="Notas (opcional)" value="${escapeAttr(noteVal)}" data-note-idx="${idx}">
         <a class="video-btn" href="${ex.video}" target="_blank" rel="noopener">${playIcon()}<span>Ver vídeo</span></a>
@@ -549,21 +562,23 @@ function strengthCard(day, ex, idx, setsArr, noteVal, doneMap, prevBest){
     </div>`;
 }
 
-async function getPrevBestSets(day, excludeDate){
+async function getRecentSessions(day, excludeDate, limit=3){
   const logs = (await listAllLogs())
     .filter(l => l.day === day && l.date !== excludeDate)
     .sort((a,b) => b.date.localeCompare(a.date));
   const result = {};
   DATA[day].strength.forEach((ex, idx)=>{
+    const sessions = [];
     for(const l of logs){
+      if(sessions.length >= limit) break;
       const arr = (l.sets && l.sets[idx]) || [];
       const valid = arr.filter(s => s && (s.kg || s.reps));
       if(valid.length){
         const top = valid.reduce((best,s) => (parseFloat(s.kg)||0) > (parseFloat(best.kg)||0) ? s : best, valid[0]);
-        result[idx] = { kg: top.kg, reps: top.reps, date: l.date };
-        break;
+        sessions.push({ kg: top.kg, reps: top.reps, date: l.date });
       }
     }
+    result[idx] = sessions;
   });
   return result;
 }
@@ -625,7 +640,7 @@ async function renderMain(){
   const date = todayStr();
   const log = await getLog(day, date);
   const doneMap = log.done || {};
-  const prevBest = await getPrevBestSets(day, date);
+  const recentSessions = await getRecentSessions(day, date);
   if(token !== renderToken) return; // a newer render started while we were waiting on these
 
   const total = d.warmup.length + d.strength.length;
@@ -644,7 +659,7 @@ async function renderMain(){
     ${pendingFirst(d.warmup, 'warm', doneMap).map(i=>warmCard(day, d.warmup[i], i, doneMap)).join('')}
 
     <div class="section-label strength">Entrenamiento de fuerza</div>
-    ${pendingFirst(d.strength, 'strength', doneMap).map(i=>strengthCard(day, d.strength[i], i, log.sets[i]||[], log.notes[i]||'', doneMap, prevBest[i])).join('')}
+    ${pendingFirst(d.strength, 'strength', doneMap).map(i=>strengthCard(day, d.strength[i], i, log.sets[i]||[], log.notes[i]||'', doneMap, recentSessions[i])).join('')}
 
     <div class="section-label cardio">Cardio</div>
     ${cardioCard(day, log.cardio)}
