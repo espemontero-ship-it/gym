@@ -118,6 +118,16 @@
   .ex-photo-frame svg{ width:56px; height:56px; color: var(--volt-dim); }
   .ex-card.done .ex-photo-frame{ filter: grayscale(.55) brightness(.5); }
 
+  .ex-header{ display:flex; align-items:flex-start; gap:10px; padding:12px 14px 0; }
+  .ex-header .ex-name{ flex:1; min-width:0; padding-top:6px; }
+  .ex-thumb-wrap{ position:relative; flex:0 0 auto; }
+  .ex-thumb-wrap .ex-photo-frame{ width:100px; height:100px; aspect-ratio:auto; border-radius:12px; }
+  .ex-thumb-wrap .ex-photo-frame svg{ width:36px; height:36px; }
+  .ex-thumb-wrap .ex-play-hint{ width:26px; height:26px; bottom:5px; left:5px; }
+  .ex-thumb-wrap .ex-play-hint svg{ width:12px; height:12px; }
+  .ex-thumb-wrap .ex-done-badge span{ width:40px; height:40px; }
+  .ex-thumb-wrap .ex-done-badge svg{ width:20px; height:20px; }
+
   .check-overlay{
     position:absolute; top:10px; right:10px; margin-top:0; z-index:2;
     background: rgba(23,24,26,.45); border-color: rgba(242,241,236,.55);
@@ -507,7 +517,6 @@ function warmCard(day, ex, idx, doneMap){
       </div>
       <div class="ex-body">
         <div class="ex-name">${ex.name} <span style="color:var(--ink-dim); font-weight:500;">· ${ex.series}x${ex.rep}</span></div>
-        <a class="video-btn" href="${ex.video}" target="_blank" rel="noopener">${playIcon()}<span>Ver vídeo</span></a>
       </div>
     </div>`;
 }
@@ -521,8 +530,8 @@ function strengthCard(day, ex, idx, setsArr, noteVal, doneMap, recentSessions){
   const key = `${day}-strength-${idx}`;
   const isDone = !!doneMap[`strength-${idx}`];
   const numSets = parseInt(ex.series, 10) || 1;
-  const historyText = (recentSessions && recentSessions.length)
-    ? recentSessions.map(s => `${shortDate(s.date)}: ${fmtKg(s.kg)||'-'}kg×${s.reps||'-'}`).join(' · ')
+  const historyHtml = (recentSessions && recentSessions.length)
+    ? recentSessions.map(s => escapeAttr(`${shortDate(s.date)}: ${s.sets.map(x => `${fmtKg(x.kg)||'-'}kg×${x.reps||'-'}`).join(', ')}`)).join('<br>')
     : 'Sin sesiones previas';
   const setRows = Array.from({length: numSets}).map((_,si)=>{
     const s = setsArr[si] || {};
@@ -538,26 +547,27 @@ function strengthCard(day, ex, idx, setsArr, noteVal, doneMap, recentSessions){
   }).join('');
   return `
     <div class="card ex-card ${isDone?'done':''}" data-key="${key}">
-      <div class="ex-photo-wrap">
-        <button class="thumb-btn ex-photo" type="button" data-name="${escapeAttr(ex.name)}" data-video="${escapeAttr(ex.video)}" data-series="${escapeAttr(ex.series)}" data-rep="${escapeAttr(ex.rep)}" data-recp="${escapeAttr(ex.recp || '')}" data-icon="${escapeAttr(ex.icon || '')}" data-photo="${escapeAttr(ex.photo || '')}" aria-label="Ver detalle de ${escapeAttr(ex.name)}">
-          <div class="ex-photo-frame">${thumbHtml(ex)}</div>
-          <span class="ex-play-hint">${playIcon()}</span>
-        </button>
-        <div class="check check-overlay">${checkIcon()}</div>
-        <div class="ex-done-badge"><span>${checkIcon()}</span></div>
+      <div class="ex-header">
+        <div class="check">${checkIcon()}</div>
+        <div class="ex-thumb-wrap">
+          <button class="thumb-btn ex-photo" type="button" data-name="${escapeAttr(ex.name)}" data-video="${escapeAttr(ex.video)}" data-series="${escapeAttr(ex.series)}" data-rep="${escapeAttr(ex.rep)}" data-recp="${escapeAttr(ex.recp || '')}" data-icon="${escapeAttr(ex.icon || '')}" data-photo="${escapeAttr(ex.photo || '')}" aria-label="Ver detalle de ${escapeAttr(ex.name)}">
+            <div class="ex-photo-frame">${thumbHtml(ex)}</div>
+            <span class="ex-play-hint">${playIcon()}</span>
+          </button>
+          <div class="ex-done-badge"><span>${checkIcon()}</span></div>
+        </div>
+        <div class="ex-name">${ex.name}</div>
       </div>
       <div class="ex-body">
-        <div class="ex-name">${ex.name}</div>
         <div class="stats">
           <div class="stat"><b>Series</b>${ex.series}</div>
           <div class="stat"><b>Reps</b>${ex.rep}</div>
           <div class="stat"><b>Descanso</b>${ex.recp}</div>
           <div class="stat"><b>Int.</b>${ex.int}</div>
         </div>
-        <div class="prev-history"><b>Historial</b> ${historyText}</div>
+        <div class="prev-history"><b>Historial</b><br>${historyHtml}</div>
         <div class="sets-grid">${setRows}</div>
         <input class="note-input" type="text" placeholder="Notas (opcional)" value="${escapeAttr(noteVal)}" data-note-idx="${idx}">
-        <a class="video-btn" href="${ex.video}" target="_blank" rel="noopener">${playIcon()}<span>Ver vídeo</span></a>
       </div>
     </div>`;
 }
@@ -574,8 +584,7 @@ async function getRecentSessions(day, excludeDate, limit=3){
       const arr = (l.sets && l.sets[idx]) || [];
       const valid = arr.filter(s => s && (s.kg || s.reps));
       if(valid.length){
-        const top = valid.reduce((best,s) => (parseFloat(s.kg)||0) > (parseFloat(best.kg)||0) ? s : best, valid[0]);
-        sessions.push({ kg: top.kg, reps: top.reps, date: l.date });
+        sessions.push({ date: l.date, sets: valid.map(s => ({ kg: s.kg, reps: s.reps })) });
       }
     }
     result[idx] = sessions;
