@@ -99,8 +99,8 @@
   .card.done .ex-name{ color: var(--ink-dim); text-decoration: line-through; text-decoration-color: var(--volt-dim); }
 
   .stats{ display:flex; flex-wrap:wrap; gap: 6px 8px; margin-top: 9px; align-items:center; }
-  .stat{ background: #17181a; border:1px solid var(--line); border-radius: 7px; padding: 4px 8px; font-size: 12px; font-weight:600; color: var(--ink); }
-  .stat b{ color: var(--ink-dim); font-weight:600; margin-right:3px; }
+  .stat{ background: #17181a; border:1px solid var(--line); border-radius: 7px; padding: 4px 8px; font-size: 12px; font-weight:600; color: var(--volt); }
+  .stat b{ color: var(--volt); font-weight:600; margin-right:3px; }
 
   .kg-input{
     flex:1; background:#17181a; border:1.5px solid var(--line); border-radius:8px; color:var(--ink);
@@ -118,15 +118,9 @@
   .ex-photo-frame svg{ width:56px; height:56px; color: var(--volt-dim); }
   .ex-card.done .ex-photo-frame{ filter: grayscale(.55) brightness(.5); }
 
-  .ex-header{ display:flex; align-items:flex-start; gap:10px; padding:12px 14px 0; }
-  .ex-header .ex-name{ flex:1; min-width:0; padding-top:6px; }
-  .ex-thumb-wrap{ position:relative; flex:0 0 auto; }
-  .ex-thumb-wrap .ex-photo-frame{ width:100px; height:100px; aspect-ratio:auto; border-radius:12px; }
-  .ex-thumb-wrap .ex-photo-frame svg{ width:36px; height:36px; }
-  .ex-thumb-wrap .ex-play-hint{ width:26px; height:26px; bottom:5px; left:5px; }
-  .ex-thumb-wrap .ex-play-hint svg{ width:12px; height:12px; }
-  .ex-thumb-wrap .ex-done-badge span{ width:40px; height:40px; }
-  .ex-thumb-wrap .ex-done-badge svg{ width:20px; height:20px; }
+  .ex-photo-wrap--square{ width:150px; margin:14px auto 0; }
+  .ex-photo-wrap--square .ex-photo-frame{ width:150px; aspect-ratio:1/1; border-radius:12px; }
+  .ex-photo-wrap--square .check-overlay{ border-color: var(--volt); }
 
   .check-overlay{
     position:absolute; top:10px; right:10px; margin-top:0; z-index:2;
@@ -146,26 +140,27 @@
   .ex-done-badge svg{ width:28px; height:28px; }
 
   .ex-body{ padding:12px 14px; }
+  .ex-body .ex-name{ font-size:17px; }
 
   .prev-history{
-    font-size:11.5px; color:var(--ink-dim); margin-top:9px; padding:6px 8px;
-    background:#17181a; border:1px solid var(--line); border-radius:8px; line-height:1.4;
+    font-size:13px; font-weight:400; color:var(--ink); margin-top:8px; line-height:1.5;
   }
-  .prev-history b{ color:var(--ink); font-weight:700; margin-right:4px; }
+  .prev-history b{ font-weight:700; margin-right:4px; }
 
-  .sets-grid{ margin-top:9px; display:flex; flex-direction:column; gap:6px; }
-  .set-row{ display:flex; align-items:center; gap:6px; background:#17181a; border:1px solid var(--line); border-radius:8px; padding:5px 8px; }
-  .set-row .set-label{ font-size:11px; color:var(--ink-dim); font-weight:700; width:50px; flex:0 0 auto; }
+  .sets-grid{ margin-top:10px; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .set-row{ display:flex; align-items:center; gap:6px; padding:7px 10px; }
+  .set-row + .set-row{ border-top:1px solid var(--line); }
+  .set-row .set-label{ font-size:13px; color:var(--ink); font-weight:700; width:50px; flex:0 0 auto; }
   .set-row input{ width:100%; min-width:0; background:transparent; border:0; color:var(--ink); font-size:13px; font-weight:700; font-family:'Inter',sans-serif; text-align:center; padding:4px 2px; }
   .set-row input:focus{ outline:none; }
-  .set-row .unit{ font-size:10px; color:var(--ink-dim); flex:0 0 auto; }
-  .set-row .sep{ color:var(--ink-dim); font-size:12px; flex:0 0 auto; }
+  .set-row .unit{ font-size:13px; color:var(--ink); flex:0 0 auto; }
+  .set-row .sep{ color:var(--ink); font-size:13px; flex:0 0 auto; }
 
   .note-input{
-    margin-top:8px; width:100%; background:#17181a; border:1.5px solid var(--line); border-radius:8px;
-    color:var(--ink); font-size:13px; padding:8px 10px; font-family:'Inter',sans-serif;
+    margin-top:9px; width:100%; background:transparent; border:0; border-bottom:1.5px solid var(--line);
+    color:var(--ink); font-size:13px; padding:4px 2px; font-family:'Inter',sans-serif;
   }
-  .note-input:focus{ outline:none; border-color: var(--volt); }
+  .note-input:focus{ outline:none; border-bottom-color: var(--volt); }
   .note-input::placeholder{ color: var(--ink-dim); }
 
   .video-btn{
@@ -531,7 +526,7 @@ function strengthCard(day, ex, idx, setsArr, noteVal, doneMap, recentSessions){
   const isDone = !!doneMap[`strength-${idx}`];
   const numSets = parseInt(ex.series, 10) || 1;
   const historyHtml = (recentSessions && recentSessions.length)
-    ? recentSessions.map(s => escapeAttr(`${shortDate(s.date)}: ${s.sets.map(x => `${fmtKg(x.kg)||'-'}kg×${x.reps||'-'}`).join(', ')}`)).join('<br>')
+    ? recentSessions.map(s => escapeAttr(`${shortDate(s.date)}: ${s.sets.map(x => `${fmtKg(x.kg)||'-'}×${x.reps||'-'}`).join(', ')}`)).join(' · ')
     : 'Sin sesiones previas';
   const setRows = Array.from({length: numSets}).map((_,si)=>{
     const s = setsArr[si] || {};
@@ -547,25 +542,23 @@ function strengthCard(day, ex, idx, setsArr, noteVal, doneMap, recentSessions){
   }).join('');
   return `
     <div class="card ex-card ${isDone?'done':''}" data-key="${key}">
-      <div class="ex-header">
-        <div class="check">${checkIcon()}</div>
-        <div class="ex-thumb-wrap">
-          <button class="thumb-btn ex-photo" type="button" data-name="${escapeAttr(ex.name)}" data-video="${escapeAttr(ex.video)}" data-series="${escapeAttr(ex.series)}" data-rep="${escapeAttr(ex.rep)}" data-recp="${escapeAttr(ex.recp || '')}" data-icon="${escapeAttr(ex.icon || '')}" data-photo="${escapeAttr(ex.photo || '')}" aria-label="Ver detalle de ${escapeAttr(ex.name)}">
-            <div class="ex-photo-frame">${thumbHtml(ex)}</div>
-            <span class="ex-play-hint">${playIcon()}</span>
-          </button>
-          <div class="ex-done-badge"><span>${checkIcon()}</span></div>
-        </div>
-        <div class="ex-name">${ex.name}</div>
+      <div class="ex-photo-wrap ex-photo-wrap--square">
+        <button class="thumb-btn ex-photo" type="button" data-name="${escapeAttr(ex.name)}" data-video="${escapeAttr(ex.video)}" data-series="${escapeAttr(ex.series)}" data-rep="${escapeAttr(ex.rep)}" data-recp="${escapeAttr(ex.recp || '')}" data-icon="${escapeAttr(ex.icon || '')}" data-photo="${escapeAttr(ex.photo || '')}" aria-label="Ver detalle de ${escapeAttr(ex.name)}">
+          <div class="ex-photo-frame">${thumbHtml(ex)}</div>
+          <span class="ex-play-hint">${playIcon()}</span>
+        </button>
+        <div class="check check-overlay">${checkIcon()}</div>
+        <div class="ex-done-badge"><span>${checkIcon()}</span></div>
       </div>
       <div class="ex-body">
+        <div class="ex-name">${ex.name}</div>
         <div class="stats">
           <div class="stat"><b>Series</b>${ex.series}</div>
           <div class="stat"><b>Reps</b>${ex.rep}</div>
           <div class="stat"><b>Descanso</b>${ex.recp}</div>
           <div class="stat"><b>Int.</b>${ex.int}</div>
         </div>
-        <div class="prev-history"><b>Historial</b><br>${historyHtml}</div>
+        <div class="prev-history"><b>Antes:</b> ${historyHtml}</div>
         <div class="sets-grid">${setRows}</div>
         <input class="note-input" type="text" placeholder="Notas (opcional)" value="${escapeAttr(noteVal)}" data-note-idx="${idx}">
       </div>
