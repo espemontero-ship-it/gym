@@ -41,6 +41,11 @@
   }
   .tab.active{ background: var(--volt); color:#14150f; border-color: var(--volt); }
 
+  .topbar-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .mode-switch{ display:flex; background:var(--card); border:1px solid var(--card-border); border-radius:10px; padding:3px; gap:3px; }
+  .mode-btn{ flex:1; background:transparent; border:0; color:var(--ink-dim); border-radius:7px; padding:7px 4px; font-weight:700; font-size:12.5px; cursor:pointer; font-family:'Inter',sans-serif; }
+  .mode-btn.active{ background:var(--volt); color:#14150f; }
+
   main{ padding: 10px 16px 0; max-width: 640px; margin:0 auto; }
 
   .day-head{ display:flex; align-items:baseline; justify-content:space-between; margin: 14px 2px 8px; }
@@ -234,7 +239,10 @@
 <body>
 
 <div class="topbar">
-  <div class="title">ESPERANZA <span>· BLOQUE 1</span></div>
+  <div class="topbar-head">
+    <div class="title">ESPERANZA</div>
+    <div class="mode-switch" id="mode-switch"></div>
+  </div>
   <div class="tabs" id="tabs"></div>
 </div>
 
@@ -255,7 +263,7 @@
   </div>
 </div>
 
-<footer>Toca <b>▢</b> para marcar un ejercicio hecho. Los kg, reps, notas y el cardio se guardan por día y quedan en <b>Historial</b>.</footer>
+<footer id="footer-note">Toca <b>▢</b> para marcar un ejercicio hecho. Los kg, reps, notas y el cardio se guardan por día y quedan en <b>Historial</b>.</footer>
 
 <script>
 // ---------- icon library (used when there's no real video thumbnail available) ----------
@@ -374,6 +382,9 @@ const DATA = {
 
 const DAY_ORDER = ["A","B","C","D"];
 let current = "A";
+// Top-level mode: "BLOQUE" (normal 4-day routine) or "SEMANA" ("Esta semana" planning screen).
+let mode = "BLOQUE";
+let semanaDias = [];
 // Bumped on every renderMain call; async fetches check it against the value they started
 // with so a slow, stale render (e.g. tapping another tab before Supabase replies) never
 // overwrites the screen after a newer one already landed.
@@ -440,6 +451,8 @@ async function listAllLogs(){
 }
 
 const tabsEl = document.getElementById('tabs');
+const modeSwitchEl = document.getElementById('mode-switch');
+const footerNoteEl = document.getElementById('footer-note');
 const mainEl = document.getElementById('main');
 const previewModal = document.getElementById('preview-modal');
 const previewTitleEl = document.getElementById('preview-title');
@@ -486,6 +499,43 @@ function checkIcon(){ return '<svg viewBox="0 0 24 24" fill="none"><path d="M4 1
 function playIcon(){ return '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>'; }
 
 function renderTabs(){
+  footerNoteEl.style.display = mode === 'SEMANA' ? 'none' : '';
+  modeSwitchEl.innerHTML = `
+    <button class="mode-btn ${mode==='BLOQUE'?'active':''}" type="button" data-mode="BLOQUE">Bloque 1</button>
+    <button class="mode-btn ${mode==='SEMANA'?'active':''}" type="button" data-mode="SEMANA">Esta semana</button>
+  `;
+  modeSwitchEl.querySelectorAll('.mode-btn').forEach(b=>{
+    b.addEventListener('click', ()=>{ mode = b.dataset.mode; renderTabs(); renderMain(); });
+  });
+
+  if(mode === 'SEMANA'){
+    const items = [
+      { key:'ENTRENADOR', label:'Entrenador', nav:false },
+      { key:'A', label:DATA.A.label, nav:false },
+      { key:'B', label:DATA.B.label, nav:false },
+      { key:'C', label:DATA.C.label, nav:false },
+      { key:'HIST', label:'Historial', nav:true },
+      { key:'INFORMES', label:'Informes', nav:true },
+    ];
+    tabsEl.innerHTML = items.map(it => `
+      <div class="tab ${it.nav ? (current===it.key?'active':'') : (semanaDias.includes(it.key)?'active':'')}" data-key="${it.key}" data-nav="${it.nav}">${it.label}</div>
+    `).join('');
+    tabsEl.querySelectorAll('.tab').forEach(t=>{
+      t.addEventListener('click', ()=>{
+        const k = t.dataset.key;
+        if(t.dataset.nav === 'true'){ current = k; renderTabs(); renderMain(); return; }
+        if(semanaDias.includes(k)){
+          semanaDias = semanaDias.filter(d=>d!==k);
+        } else if(semanaDias.length < 3 || k==='ENTRENADOR'){
+          semanaDias.push(k);
+        }
+        renderTabs();
+        renderMain();
+      });
+    });
+    return;
+  }
+
   const dayTabs = DAY_ORDER.map(k => `
     <div class="tab ${k===current?'active':''}" data-day="${k}">${DATA[k].label}</div>
   `).join('');
@@ -632,10 +682,18 @@ function refreshSyncBanner(){
   }
 }
 
+function renderSemana(){
+  const dias = semanaDias.filter(k=>k!=='ENTRENADOR');
+  mainEl.innerHTML = `
+    <div class="prev-history" style="margin-top:9px;">Días elegidos: ${dias.length} de 3</div>
+  `;
+}
+
 async function renderMain(){
   const token = ++renderToken;
   if(current === 'HIST'){ await renderHistory(token); return; }
   if(current === 'INFORMES'){ await renderInformes(token); return; }
+  if(mode === 'SEMANA'){ renderSemana(); return; }
 
   const day = current;
   const d = DATA[day];
