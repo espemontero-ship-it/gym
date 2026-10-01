@@ -22,6 +22,11 @@ alter table workout_logs add column if not exists done jsonb not null default '{
 alter table workout_logs add column if not exists sets jsonb not null default '{}'::jsonb;
 alter table workout_logs add column if not exists notes jsonb not null default '{}'::jsonb;
 
+-- "custom" holds exercises added on the fly (not part of the fixed A-D catalog) — used
+-- both for logging what the trainer had you do on day='ENTRENADOR', and for extra
+-- exercises added into a normal day (e.g. abdominales). Each entry: {name, muscle, sets}.
+alter table workout_logs add column if not exists custom jsonb not null default '[]'::jsonb;
+
 -- This app has no login screen — the anon key is the only credential, used
 -- directly from the browser. RLS is enabled with a permissive policy so the
 -- page can read/write its own log rows; there's nothing sensitive here beyond
