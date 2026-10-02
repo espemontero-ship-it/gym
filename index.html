@@ -729,6 +729,7 @@ function addExerciseFormHtml(idPrefix){
           <select class="kg-input" id="${idPrefix}-muscle">${muscleOptions}</select>
         </div>
       </div>
+      <div id="${idPrefix}-muscle-list" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:9px;"></div>
       <div class="sets-grid" id="${idPrefix}-sets" style="margin-top:9px;"></div>
       <button class="video-btn" type="button" id="${idPrefix}-add-set" style="border-style:dashed;">+ Añadir serie</button>
       <button class="video-btn" type="button" id="${idPrefix}-save">Guardar ejercicio</button>
@@ -738,10 +739,30 @@ function addExerciseFormHtml(idPrefix){
 
 function wireAddExerciseForm(idPrefix, onSave){
   const catalog = exerciseCatalog();
+  const byMuscle = new Map();
+  catalog.forEach((muscle, name)=>{
+    if(!byMuscle.has(muscle)) byMuscle.set(muscle, []);
+    byMuscle.get(muscle).push(name);
+  });
   const nameEl = document.getElementById(`${idPrefix}-name`);
   const muscleEl = document.getElementById(`${idPrefix}-muscle`);
+  const muscleListEl = document.getElementById(`${idPrefix}-muscle-list`);
   const setsEl = document.getElementById(`${idPrefix}-sets`);
   let setRows = [{ kg:'', reps:'' }];
+
+  function renderMuscleList(){
+    const names = byMuscle.get(muscleEl.value) || [];
+    muscleListEl.innerHTML = names.map(n => `<button type="button" class="tab" style="width:auto;" data-name="${escapeAttr(n)}">${escapeAttr(n)}</button>`).join('');
+    muscleListEl.querySelectorAll('button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        nameEl.value = btn.dataset.name;
+        muscleEl.value = catalog.get(btn.dataset.name);
+        muscleEl.disabled = true;
+      });
+    });
+  }
+  renderMuscleList();
+  muscleEl.addEventListener('change', renderMuscleList);
 
   function renderSetRows(){
     setsEl.innerHTML = setRows.map((s,i) => `
