@@ -813,13 +813,21 @@ function wireAddExerciseForm(idPrefix, onSave){
 // so the "Esta semana" menu can show the right 3 days without becoming async itself.
 let cachedSubstitutedDay = null;
 
+// The calculated plan is saved inside the trainer session's own row (in its otherwise
+// unused "notes" field), so it's calculated once and reused until a new session starts.
+function planSig(custom){ return (custom||[]).map(e=>e.name.trim().toLowerCase()).join('|'); }
+
 async function getActiveWeekPlan(){
   const session = await getEntrenadorSession();
-  if(!session || !session.custom || !session.custom.length){ cachedSubstitutedDay = null; return null; }
-  const { list, substitutedDay } = computeWeekPlan(session.custom);
-  cachedSubstitutedDay = substitutedDay;
-  return list;
+  const plan = session && session.notes && session.notes.plan;
+  if(!plan){ cachedSubstitutedDay = null; return null; }
+  cachedSubstitutedDay = plan.substitutedDay;
+  return plan.list;
 }
+
+const NOT_SAME_DAY = [
+  ['press plano con mancuernas (pies en banco)', 'press inclinado con mancuernas', 'pec fly']
+];
 
 function computeWeekPlan(trainerCustom){
   const pool = [];
@@ -884,10 +892,17 @@ function computeWeekPlan(trainerCustom){
         .reduce((sum,r)=>sum+r.series, 0);
     });
     list.forEach(ex=>{
-      const target = otherDays.reduce((best,d)=>{
+      // Moved exercises never land on a day that already has one of the others in
+      // their "not together" group (falls back to any day only if every day clashes).
+      const group = NOT_SAME_DAY.find(g => g.includes(ex.name.trim().toLowerCase()));
+      const clashFree = group
+        ? otherDays.filter(d => !results.some(r => r!==ex && r.status==='queda' && r.assignedTo===d && group.includes(r.name.trim().toLowerCase())))
+        : otherDays;
+      const candidates = clashFree.length ? clashFree : otherDays;
+      const target = candidates.reduce((best,d)=>{
         if(totalLoad[d] !== totalLoad[best]) return totalLoad[d] < totalLoad[best] ? d : best;
         return muscleLoad[d] < muscleLoad[best] ? d : best;
-      }, otherDays[0]);
+      }, candidates[0]);
       ex.assignedTo = target;
       totalLoad[target] += ex.series;
       muscleLoad[target] += ex.series;
@@ -903,17 +918,21 @@ function dayLabelMap(substitutedDay){
   return map;
 }
 
-function weekPlanRowHtml(ex, labels){
+function weekPlanRowHtml(ex, labels, i){
   const origin = labels.get(ex.day) || 'Entrenador (hoy)';
-  let statusText, statusColor;
-  if(ex.status === 'mismo'){ statusText = 'Se quita — mismo ejercicio que el entrenador'; statusColor = 'var(--ink-dim)'; }
-  else if(ex.assignedTo === ex.day){ statusText = `Se queda — ${labels.get(ex.assignedTo)}`; statusColor = 'var(--volt)'; }
-  else{ statusText = `Se mueve — ${labels.get(ex.assignedTo)}`; statusColor = 'var(--teal)'; }
+  let right;
+  if(ex.status === 'mismo'){
+    right = `<span class="v" style="color:var(--ink-dim);">Se quita — mismo ejercicio que el entrenador</span>`;
+  } else {
+    const color = ex.assignedTo === ex.day ? 'var(--volt)' : 'var(--teal)';
+    const opts = [...labels.entries()].map(([d,label])=>`<option value="${d}" ${d===ex.assignedTo?'selected':''}>${label}</option>`).join('');
+    right = `<select class="kg-input plan-dest" data-i="${i}" aria-label="Día de ${escapeAttr(ex.name)}" style="width:auto; flex:0 0 auto; color:${color};">${opts}</select>`;
+  }
   return `
     <div class="hist-item-block">
-      <div class="hist-item">
+      <div class="hist-item" style="align-items:center;">
         <span class="n">${escapeAttr(ex.name)} <span style="color:var(--ink-dim); font-weight:500;">· ${origin}</span></span>
-        <span class="v" style="color:${statusColor};">${statusText}</span>
+        ${right}
       </div>
     </div>
   `;
@@ -966,14 +985,38 @@ async function renderEntrenador(token){
     await renderMain();
   });
 
+  const resultEl = document.getElementById('plan-resultado');
+  const savedPlan = log.notes && log.notes.plan;
+  if(savedPlan){
+    cachedSubstitutedDay = savedPlan.substitutedDay;
+    const labels = dayLabelMap(savedPlan.substitutedDay);
+    const stale = savedPlan.sig !== planSig(log.custom);
+    resultEl.innerHTML = (stale ? '<div class="prev-history">Has añadido ejercicios después de calcular: pulsa Calcular otra vez para actualizar el reparto.</div>' : '')
+      + savedPlan.list.map((ex,i)=>weekPlanRowHtml(ex, labels, i)).join('')
+      + '<button class="video-btn" type="button" id="btn-guardar-plan">Guardar cambios</button>';
+
+    const edited = savedPlan.list.map(ex=>({ ...ex }));
+    resultEl.querySelectorAll('.plan-dest').forEach(sel=>{
+      sel.addEventListener('change', ()=>{ edited[Number(sel.dataset.i)].assignedTo = sel.value; });
+    });
+    document.getElementById('btn-guardar-plan').addEventListener('click', async ()=>{
+      const fresh = await getLog('ENTRENADOR', date);
+      fresh.notes = fresh.notes || {};
+      fresh.notes.plan = { ...fresh.notes.plan, list: edited };
+      await saveLog('ENTRENADOR', date, fresh);
+      await renderMain();
+    });
+  }
+
   if(canCalc){
-    document.getElementById('btn-calcular').addEventListener('click', ()=>{
+    document.getElementById('btn-calcular').addEventListener('click', async ()=>{
       const { list, substitutedDay } = computeWeekPlan(log.custom);
-      cachedSubstitutedDay = substitutedDay;
+      const fresh = await getLog('ENTRENADOR', date);
+      fresh.notes = fresh.notes || {};
+      fresh.notes.plan = { substitutedDay, list, sig: planSig(fresh.custom) };
+      await saveLog('ENTRENADOR', date, fresh);
+      await renderMain();
       renderTabs();
-      const labels = dayLabelMap(substitutedDay);
-      const resultEl = document.getElementById('plan-resultado');
-      resultEl.innerHTML = list.map(ex=>weekPlanRowHtml(ex, labels)).join('');
     });
   }
 }
@@ -1324,8 +1367,11 @@ async function renderInformes(token){
   });
 }
 
-renderTabs();
-renderMain();
+(async ()=>{
+  await getActiveWeekPlan(); // so the "Esta semana" menu knows the saved plan from the first paint
+  renderTabs();
+  renderMain();
+})();
 </script>
 </body>
 </html>
