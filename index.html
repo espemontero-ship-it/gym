@@ -1071,10 +1071,17 @@ async function renderMain(){
   const doneCount = [...d.warmup.keys()].filter(i=>doneMap[`warm-${i}`]).length
                   + strengthEntries.filter(({originDay, originIdx}) => (logCache.get(originDay).done||{})[`strength-${originIdx}`]).length;
 
-  const strengthCardsHtml = strengthEntries.map(({ex, originDay, originIdx})=>{
+  const strengthCardHtml = ({ex, originDay, originIdx})=>{
     const oLog = logCache.get(originDay);
     return strengthCard(originDay, ex, originIdx, oLog.sets[originIdx]||[], oLog.notes[originIdx]||'', oLog.done||{}, recentSessionsByDay.get(originDay)[originIdx]);
-  }).join('');
+  };
+  const warmIdx = d.warmup.map((_,i)=>i);
+  const pendingWarmIdx = warmIdx.filter(i=>!doneMap[`warm-${i}`]);
+  const doneWarmIdx = warmIdx.filter(i=>doneMap[`warm-${i}`]);
+  // Order below the strength heading: pending strength, then done warm-ups, then done strength.
+  const strengthCardsHtml = strengthEntries.filter(e=>!isEntryDone(e)).map(strengthCardHtml).join('')
+    + doneWarmIdx.map(i=>warmCard(day, d.warmup[i], i, doneMap)).join('')
+    + strengthEntries.filter(isEntryDone).map(strengthCardHtml).join('');
 
   const customRows = (log.custom||[]).map(entry => `
     <div class="hist-item-block">
@@ -1094,7 +1101,7 @@ async function renderMain(){
     ${syncError ? `<div class="storage-note sync-error">${syncError}</div>` : ''}
 
     <div class="section-label warm">Calentamiento</div>
-    ${pendingFirst(d.warmup, 'warm', doneMap).map(i=>warmCard(day, d.warmup[i], i, doneMap)).join('')}
+    ${pendingWarmIdx.map(i=>warmCard(day, d.warmup[i], i, doneMap)).join('')}
 
     <div class="section-label strength">Entrenamiento de fuerza</div>
     ${strengthCardsHtml}
