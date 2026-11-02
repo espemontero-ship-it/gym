@@ -1282,11 +1282,12 @@ async function renderInformes(token){
     });
   });
 
-  // Entrenador sessions aren't tied to a day/idx — fold their sets into the matching
-  // catalog exercise by name, or give a brand-new name its own group.
-  const entrenadorLogs = logs.filter(l => l.day === 'ENTRENADOR');
+  // Exercises added on the fly (Entrenador sessions, or free extras on a normal day) aren't
+  // tied to a day/idx — fold their sets into the matching catalog exercise by name, or give
+  // a brand-new name its own group.
+  const customLogs = logs.filter(l => (l.custom||[]).length);
   const knownLower = new Set([...exerciseRefs.keys()].map(n=>n.toLowerCase()));
-  entrenadorLogs.forEach(l=>{
+  customLogs.forEach(l=>{
     (l.custom||[]).forEach(entry=>{
       const trimmed = entry.name.trim();
       if(!knownLower.has(trimmed.toLowerCase())){
@@ -1306,17 +1307,17 @@ async function renderInformes(token){
         return setsArr.map((s, si) => ({ date: l.date, day: l.day, idx, setNum: si+1, kg: s.kg||'', reps: s.reps||'', editable: true }));
       });
 
-    const entrenadorHistory = entrenadorLogs
+    const customHistory = customLogs
       .flatMap(l => (l.custom||[])
         .filter(entry => entry.name.trim().toLowerCase() === name.toLowerCase())
         .flatMap(entry => (entry.sets||[])
           .filter(s => s && (s.kg || s.reps))
-          .map((s,si) => ({ date: l.date, day: 'ENTRENADOR', setNum: si+1, kg: s.kg||'', reps: s.reps||'', editable: false }))));
+          .map((s,si) => ({ date: l.date, day: l.day, tag: l.day === 'ENTRENADOR' ? 'Entrenador' : 'Libre', setNum: si+1, kg: s.kg||'', reps: s.reps||'', editable: false }))));
 
-    const history = [...dayHistory, ...entrenadorHistory].sort((a,b) => b.date.localeCompare(a.date) || a.setNum - b.setNum);
+    const history = [...dayHistory, ...customHistory].sort((a,b) => b.date.localeCompare(a.date) || a.setNum - b.setNum);
 
     const rows = history.length
-      ? history.map(h => `<tr><td>${h.date}${h.day==='ENTRENADOR' ? ' <span style="color:var(--ink-dim); font-weight:500;">· Entrenador</span>' : ''}</td><td>Serie ${h.setNum}</td>` +
+      ? history.map(h => `<tr><td>${h.date}${h.tag ? ` <span style="color:var(--ink-dim); font-weight:500;">· ${h.tag}</span>` : ''}</td><td>Serie ${h.setNum}</td>` +
           (h.editable
             ? `<td class="num"><input class="info-input" type="text" inputmode="decimal" value="${fmtKg(h.kg)}" data-day="${h.day}" data-date="${h.date}" data-idx="${h.idx}" data-set-i="${h.setNum-1}" data-field="kg" aria-label="Kg, ${escapeAttr(name)}, serie ${h.setNum}, ${h.date}"></td>` +
               `<td class="num"><input class="info-input" type="number" inputmode="numeric" min="0" step="1" value="${h.reps}" data-day="${h.day}" data-date="${h.date}" data-idx="${h.idx}" data-set-i="${h.setNum-1}" data-field="reps" aria-label="Reps, ${escapeAttr(name)}, serie ${h.setNum}, ${h.date}"></td>`
