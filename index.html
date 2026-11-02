@@ -761,6 +761,10 @@ function wireAddExerciseForm(idPrefix, onSave){
       });
     });
   }
+  // A name typed by hand hides the shortcut buttons, so a stray tap can't silently replace it.
+  function syncMuscleListVisibility(){
+    muscleListEl.style.display = nameEl.value.trim() ? 'none' : 'flex';
+  }
   renderMuscleList();
   muscleEl.addEventListener('change', renderMuscleList);
 
@@ -789,6 +793,7 @@ function wireAddExerciseForm(idPrefix, onSave){
     const match = [...catalog.keys()].find(n => n.toLowerCase() === nameEl.value.trim().toLowerCase());
     if(match){ muscleEl.value = catalog.get(match); muscleEl.disabled = true; }
     else{ muscleEl.disabled = false; }
+    syncMuscleListVisibility();
   });
 
   document.getElementById(`${idPrefix}-add-set`).addEventListener('click', ()=>{
@@ -804,6 +809,7 @@ function wireAddExerciseForm(idPrefix, onSave){
     onSave({ name, muscle: muscleEl.value, sets });
     nameEl.value = '';
     muscleEl.disabled = false;
+    syncMuscleListVisibility();
     setRows = [{ kg:'', reps:'' }];
     renderSetRows();
   });
