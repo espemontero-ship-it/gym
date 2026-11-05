@@ -953,11 +953,18 @@ async function renderEntrenador(token){
   const log = session || emptyLog();
   if(token !== renderToken) return;
 
-  const rows = (log.custom||[]).map((ex,i) => `
+  // The same exercise added more than once (by name, ignoring case) is one row with all its sets.
+  const grouped = new Map();
+  (log.custom||[]).forEach(ex => {
+    const key = ex.name.trim().toLowerCase();
+    if(!grouped.has(key)) grouped.set(key, { name: ex.name.trim(), muscle: ex.muscle, sets: [] });
+    grouped.get(key).sets.push(...(ex.sets||[]));
+  });
+  const rows = [...grouped.values()].map(ex => `
     <div class="hist-item-block">
       <div class="hist-item">
         <span class="n">${escapeAttr(ex.name)} <span style="color:var(--ink-dim); font-weight:500;">· ${MUSCLES[ex.muscle]||ex.muscle}</span></span>
-        <span class="v">${ex.sets.map(s=>`${fmtKg(s.kg)||'-'}×${s.reps||'-'}`).join(', ')}</span>
+        <span class="v">${fmtSets(ex.sets)}</span>
       </div>
     </div>
   `).join('');
@@ -1203,6 +1210,12 @@ async function renderMain(){
   });
 }
 
+// Sets as "40kg×6 · 40kg×6", skipping empty ones — same format for routine,
+// trainer and free exercises.
+function fmtSets(arr){
+  return (arr || []).filter(s => s && (s.kg || s.reps)).map(s => `${fmtKg(s.kg)||'-'}kg×${s.reps||'-'}`).join(' · ');
+}
+
 function mondayOf(dateStr){
   const d = new Date(dateStr + 'T00:00:00');
   const dow = (d.getDay() + 6) % 7; // Mon=0..Sun=6
@@ -1248,37 +1261,57 @@ async function renderHistory(token){
     byDate.get(e.date).push(e);
   });
 
-  const entryRows = e => {
-    const isTrainer = e.day === 'ENTRENADOR';
-    const d = isTrainer ? null : DATA[e.day];
-    const origin = `<span style="color:var(--ink-dim); font-weight:500;">· ${isTrainer ? 'Entrenador' : `${d.label} · ${d.sub}`}</span>`;
-    // Legacy entries (pre-sets/reps/notes) only ever have a single kg per exercise in "weights".
-    const weightRows = Object.entries(e.weights || {})
-      .filter(([idx,val]) => val !== undefined && val !== null && val !== "")
-      .map(([idx,val]) => `<div class="hist-item-block"><div class="hist-item"><span class="n">${d.strength[idx] ? d.strength[idx].name : ('Ejercicio '+idx)} ${origin}</span><span class="v">${fmtKg(val)} kg</span></div></div>`)
-      .join('');
-    const setsRows = Object.entries(e.sets || {})
-      .filter(([idx,arr]) => Array.isArray(arr) && arr.some(s => s && (s.kg || s.reps)))
-      .map(([idx,arr])=>{
-        const name = d.strength[idx] ? d.strength[idx].name : ('Ejercicio '+idx);
-        const setsText = arr.filter(s => s && (s.kg || s.reps)).map(s => `${fmtKg(s.kg)||'-'}kg×${s.reps||'-'}`).join(' · ');
-        const note = e.notes && e.notes[idx] ? `<div class="hist-note">${escapeAttr(e.notes[idx])}</div>` : '';
-        return `<div class="hist-item-block"><div class="hist-item"><span class="n">${name} ${origin}</span><span class="v">${setsText}</span></div>${note}</div>`;
-      })
-      .join('');
-    // Exercises added on the fly (trainer session, or extras like abdominales on a normal day).
-    const customRows = (e.custom || [])
-      .map(entry => `<div class="hist-item-block"><div class="hist-item"><span class="n">${escapeAttr(entry.name)} <span style="color:var(--ink-dim); font-weight:500;">· ${MUSCLES[entry.muscle]||entry.muscle}</span> ${origin}</span><span class="v">${(entry.sets||[]).map(s=>`${fmtKg(s.kg)||'-'}×${s.reps||'-'}`).join(', ')}</span></div></div>`)
-      .join('');
-    const cardioRow = (e.cardio && (e.cardio.minutes || e.cardio.machine))
-      ? `<div class="hist-item-block"><div class="hist-item"><span class="n">Cardio ${e.cardio.machine||''}</span><span class="v">${e.cardio.minutes||'0'} min</span></div></div>`
-      : '';
-    return weightRows + setsRows + customRows + cardioRow;
+  const dim = text => `<span style="color:var(--ink-dim); font-weight:500;">· ${text}</span>`;
+
+  // The same exercise done more than once on a date (by name, ignoring case) is
+  // one row: all its sets in order, every origin it came from, every note below.
+  const dateRows = ordered => {
+    const items = new Map();
+    const legacyRows = [];
+    const cardioRows = [];
+    const itemFor = (name, origin) => {
+      const key = name.trim().toLowerCase();
+      if(!items.has(key)) items.set(key, { name: name.trim(), muscle: null, origins: [], sets: [], notes: [] });
+      const it = items.get(key);
+      if(!it.origins.includes(origin)) it.origins.push(origin);
+      return it;
+    };
+    ordered.forEach(e => {
+      const isTrainer = e.day === 'ENTRENADOR';
+      const d = isTrainer ? null : DATA[e.day];
+      const origin = isTrainer ? 'Entrenador' : `${d.label} · ${d.sub}`;
+      // Legacy entries (pre-sets/reps/notes) only ever have a single kg per exercise in "weights".
+      Object.entries(e.weights || {})
+        .filter(([idx,val]) => val !== undefined && val !== null && val !== "")
+        .forEach(([idx,val]) => legacyRows.push(`<div class="hist-item-block"><div class="hist-item"><span class="n">${d.strength[idx] ? d.strength[idx].name : ('Ejercicio '+idx)} ${dim(origin)}</span><span class="v">${fmtKg(val)} kg</span></div></div>`));
+      Object.entries(e.sets || {})
+        .filter(([idx,arr]) => Array.isArray(arr) && arr.some(s => s && (s.kg || s.reps)))
+        .forEach(([idx,arr]) => {
+          const it = itemFor(d.strength[idx] ? d.strength[idx].name : ('Ejercicio '+idx), origin);
+          it.sets.push(...arr);
+          if(e.notes && e.notes[idx]) it.notes.push(e.notes[idx]);
+        });
+      // Exercises added on the fly (trainer session, or extras like abdominales on a normal day).
+      (e.custom || []).forEach(entry => {
+        const it = itemFor(entry.name, origin);
+        if(!it.muscle && entry.muscle) it.muscle = MUSCLES[entry.muscle] || entry.muscle;
+        it.sets.push(...(entry.sets || []));
+      });
+      if(e.cardio && (e.cardio.minutes || e.cardio.machine)){
+        cardioRows.push(`<div class="hist-item-block"><div class="hist-item"><span class="n">Cardio ${e.cardio.machine||''}</span><span class="v">${e.cardio.minutes||'0'} min</span></div></div>`);
+      }
+    });
+    const exerciseRows = [...items.values()].map(it => {
+      const tags = [it.muscle, ...it.origins].filter(Boolean).join(' · ');
+      const notes = it.notes.map(n => `<div class="hist-note">${escapeAttr(n)}</div>`).join('');
+      return `<div class="hist-item-block"><div class="hist-item"><span class="n">${escapeAttr(it.name)} ${dim(tags)}</span><span class="v">${fmtSets(it.sets)}</span></div>${notes}</div>`;
+    });
+    return legacyRows.join('') + exerciseRows.join('') + cardioRows.join('');
   };
 
   body.innerHTML = [...byDate.entries()].map(([date, dayEntries])=>{
     const ordered = [...dayEntries.filter(e => e.day !== 'ENTRENADOR'), ...dayEntries.filter(e => e.day === 'ENTRENADOR')];
-    const rows = ordered.map(entryRows).join('');
+    const rows = dateRows(ordered);
     return `
       <div class="hist-day">
         <div class="hist-date">${date}</div>
@@ -1335,13 +1368,18 @@ async function renderInformes(token){
           .filter(s => s && (s.kg || s.reps))
           .map((s,si) => ({ date: l.date, day: l.day, tag: l.day === 'ENTRENADOR' ? 'Entrenador' : 'Libre', setNum: si+1, kg: s.kg||'', reps: s.reps||'', editable: false }))));
 
-    const history = [...dayHistory, ...customHistory].sort((a,b) => b.date.localeCompare(a.date) || a.setNum - b.setNum);
+    // Newest date first; within a date, routine sets then trainer/free ones in the
+    // order they were done, numbered 1, 2, 3… across the whole day. setNum stays the
+    // set's real position in its own log, which the editable inputs need.
+    const history = [...dayHistory, ...customHistory].sort((a,b) => b.date.localeCompare(a.date));
+    const perDate = {};
+    history.forEach(h => { perDate[h.date] = (perDate[h.date] || 0) + 1; h.n = perDate[h.date]; });
 
     const rows = history.length
-      ? history.map(h => `<tr><td>${h.date}${h.tag ? ` <span style="color:var(--ink-dim); font-weight:500;">· ${h.tag}</span>` : ''}</td><td>Serie ${h.setNum}</td>` +
+      ? history.map(h => `<tr><td>${h.date}${h.tag ? ` <span style="color:var(--ink-dim); font-weight:500;">· ${h.tag}</span>` : ''}</td><td>Serie ${h.n}</td>` +
           (h.editable
-            ? `<td class="num"><input class="info-input" type="text" inputmode="decimal" value="${fmtKg(h.kg)}" data-day="${h.day}" data-date="${h.date}" data-idx="${h.idx}" data-set-i="${h.setNum-1}" data-field="kg" aria-label="Kg, ${escapeAttr(name)}, serie ${h.setNum}, ${h.date}"></td>` +
-              `<td class="num"><input class="info-input" type="number" inputmode="numeric" min="0" step="1" value="${h.reps}" data-day="${h.day}" data-date="${h.date}" data-idx="${h.idx}" data-set-i="${h.setNum-1}" data-field="reps" aria-label="Reps, ${escapeAttr(name)}, serie ${h.setNum}, ${h.date}"></td>`
+            ? `<td class="num"><input class="info-input" type="text" inputmode="decimal" value="${fmtKg(h.kg)}" data-day="${h.day}" data-date="${h.date}" data-idx="${h.idx}" data-set-i="${h.setNum-1}" data-field="kg" aria-label="Kg, ${escapeAttr(name)}, serie ${h.n}, ${h.date}"></td>` +
+              `<td class="num"><input class="info-input" type="number" inputmode="numeric" min="0" step="1" value="${h.reps}" data-day="${h.day}" data-date="${h.date}" data-idx="${h.idx}" data-set-i="${h.setNum-1}" data-field="reps" aria-label="Reps, ${escapeAttr(name)}, serie ${h.n}, ${h.date}"></td>`
             : `<td class="num">${fmtKg(h.kg)||'-'}</td><td class="num">${h.reps||'-'}</td>`
           ) + `</tr>`)
         .join('')
