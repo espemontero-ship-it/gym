@@ -400,7 +400,9 @@ if(SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY && SUPABASE_ANON_KEY.len
   try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }catch(e){ sb = null; }
 }
 
-function todayStr(){ return new Date().toISOString().slice(0,10); }
+// Local date (Spain), not UTC: toISOString() would give yesterday's date between
+// midnight and 1–2am.
+function todayStr(){ return dateKey(new Date()); }
 
 // Supabase is the only place data lives — no local-storage fallback. If a read or
 // write fails, syncError holds a message the UI shows until the next call succeeds,
@@ -463,8 +465,8 @@ async function listAllLogs(){
 }
 
 // There's only ever ONE trainer session at a time — found by day alone, not by
-// date. Its date is just the real date it was created/last restarted on, which
-// is also what Historial/Informes show for it, same as any other day's log.
+// date. Its date is the last day an exercise was added to it (or the day it was
+// created/restarted), which is also what Historial/Informes show for it.
 async function getEntrenadorSession(){
   const entries = (await listAllLogs()).filter(e => e.day === 'ENTRENADOR');
   return entries[0] || null;
@@ -988,7 +990,11 @@ async function renderEntrenador(token){
     const fresh = await getLog('ENTRENADOR', date);
     fresh.custom = fresh.custom || [];
     fresh.custom.push(entry);
-    await saveLog('ENTRENADOR', date, fresh);
+    // The session takes the date of the day exercises are actually added, so a
+    // session started on one day and trained on another shows the real day.
+    const today = todayStr();
+    await saveLog('ENTRENADOR', today, fresh);
+    if(date !== today && !syncError) await deleteLog('ENTRENADOR', date);
     await renderMain();
   });
 
@@ -1233,13 +1239,23 @@ async function renderHistory(token){
     return;
   }
 
-  body.innerHTML = entries.map(e=>{
+  // One block per date with every exercise of that date; each row says, in plain
+  // dim text, which routine day or trainer session it came from. Routine days
+  // first, trainer session last.
+  const byDate = new Map();
+  entries.forEach(e => {
+    if(!byDate.has(e.date)) byDate.set(e.date, []);
+    byDate.get(e.date).push(e);
+  });
+
+  const entryRows = e => {
     const isTrainer = e.day === 'ENTRENADOR';
     const d = isTrainer ? null : DATA[e.day];
+    const origin = `<span style="color:var(--ink-dim); font-weight:500;">· ${isTrainer ? 'Entrenador' : `${d.label} · ${d.sub}`}</span>`;
     // Legacy entries (pre-sets/reps/notes) only ever have a single kg per exercise in "weights".
     const weightRows = Object.entries(e.weights || {})
       .filter(([idx,val]) => val !== undefined && val !== null && val !== "")
-      .map(([idx,val]) => `<div class="hist-item-block"><div class="hist-item"><span class="n">${d.strength[idx] ? d.strength[idx].name : ('Ejercicio '+idx)}</span><span class="v">${fmtKg(val)} kg</span></div></div>`)
+      .map(([idx,val]) => `<div class="hist-item-block"><div class="hist-item"><span class="n">${d.strength[idx] ? d.strength[idx].name : ('Ejercicio '+idx)} ${origin}</span><span class="v">${fmtKg(val)} kg</span></div></div>`)
       .join('');
     const setsRows = Object.entries(e.sets || {})
       .filter(([idx,arr]) => Array.isArray(arr) && arr.some(s => s && (s.kg || s.reps)))
@@ -1247,22 +1263,26 @@ async function renderHistory(token){
         const name = d.strength[idx] ? d.strength[idx].name : ('Ejercicio '+idx);
         const setsText = arr.filter(s => s && (s.kg || s.reps)).map(s => `${fmtKg(s.kg)||'-'}kg×${s.reps||'-'}`).join(' · ');
         const note = e.notes && e.notes[idx] ? `<div class="hist-note">${escapeAttr(e.notes[idx])}</div>` : '';
-        return `<div class="hist-item-block"><div class="hist-item"><span class="n">${name}</span><span class="v">${setsText}</span></div>${note}</div>`;
+        return `<div class="hist-item-block"><div class="hist-item"><span class="n">${name} ${origin}</span><span class="v">${setsText}</span></div>${note}</div>`;
       })
       .join('');
     // Exercises added on the fly (trainer session, or extras like abdominales on a normal day).
     const customRows = (e.custom || [])
-      .map(entry => `<div class="hist-item-block"><div class="hist-item"><span class="n">${escapeAttr(entry.name)} <span style="color:var(--ink-dim); font-weight:500;">· ${MUSCLES[entry.muscle]||entry.muscle}</span></span><span class="v">${(entry.sets||[]).map(s=>`${fmtKg(s.kg)||'-'}×${s.reps||'-'}`).join(', ')}</span></div></div>`)
+      .map(entry => `<div class="hist-item-block"><div class="hist-item"><span class="n">${escapeAttr(entry.name)} <span style="color:var(--ink-dim); font-weight:500;">· ${MUSCLES[entry.muscle]||entry.muscle}</span> ${origin}</span><span class="v">${(entry.sets||[]).map(s=>`${fmtKg(s.kg)||'-'}×${s.reps||'-'}`).join(', ')}</span></div></div>`)
       .join('');
     const cardioRow = (e.cardio && (e.cardio.minutes || e.cardio.machine))
       ? `<div class="hist-item-block"><div class="hist-item"><span class="n">Cardio ${e.cardio.machine||''}</span><span class="v">${e.cardio.minutes||'0'} min</span></div></div>`
       : '';
-    const body2 = weightRows + setsRows + customRows + cardioRow;
-    const chipLabel = isTrainer ? 'Entrenador' : `${d.label} · ${d.sub}`;
+    return weightRows + setsRows + customRows + cardioRow;
+  };
+
+  body.innerHTML = [...byDate.entries()].map(([date, dayEntries])=>{
+    const ordered = [...dayEntries.filter(e => e.day !== 'ENTRENADOR'), ...dayEntries.filter(e => e.day === 'ENTRENADOR')];
+    const rows = ordered.map(entryRows).join('');
     return `
       <div class="hist-day">
-        <div class="hist-date">${e.date} <span class="chip">${chipLabel}</span></div>
-        ${body2 || '<div class="empty-hist" style="padding:10px 2px;">Sin datos guardados ese día.</div>'}
+        <div class="hist-date">${date}</div>
+        ${rows || '<div class="empty-hist" style="padding:10px 2px;">Sin datos guardados ese día.</div>'}
       </div>`;
   }).join('');
 }
