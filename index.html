@@ -123,6 +123,10 @@
 
   .ex-photo-wrap--square{ width:150px; margin:14px auto 0; }
   .ex-photo-wrap--square .ex-photo-frame{ width:150px; aspect-ratio:1/1; border-radius:12px; }
+  /* A wide photo shown whole (no square crop), across the card. */
+  .ex-photo-wrap--wide{ margin:14px 14px 0; }
+  .ex-photo-wrap--wide .ex-photo-frame{ aspect-ratio:auto; border-radius:12px; }
+  .ex-photo-wrap--wide .ex-photo-frame img{ height:auto; }
   .card-strength .check-overlay{ border-color: var(--volt); }
   .card-warm .check-overlay{ border-color: var(--teal); }
 
@@ -439,7 +443,7 @@ const DATA = {
         tips:["Evita tirar el cuerpo hacia atrás para impulsarte y mover el cable, no importa “tirar” el agarre hacia atrás si no mover tus codos.","Piensa en llevar tus codos hacia la cadera e incluso puedes añadir ligera intención en “juntarlos” por detrás.","No es necesario que el codo pase la línea de tu torso en la fase concéntrica, ni que las escapulas se protraigan durante la fase excéntrica."]},
       {name:"Remo con mancuerna unilateral", series:"3", rep:"8-10", recp:"2’", rir:"2", muscle:"espalda", icon:"row", video:"https://www.sergiomcoach.com/topics/20-remo-con-mancuerna-unilateral-2/", photo:"fotos/remo con mancuerna.png",
         tips:["Piensa en llevar tu codo a la cadera.","Realiza una trayectoria ligeramente angular, evita excesiva flexión de codo.","No “tires” de golpe ni te impulses con el cuerpo como arrancando un cortacésped, imagina que la mancuerna es un “serrucho”.","Busca elongar el dorsal alejando la mancuerna de ti en la fase excéntrica."]},
-      {name:"Press francés con mancuernas tumbado", series:"2", rep:"10-12", recp:"1,5’", rir:"1", muscle:"triceps", icon:"tricep", video:"https://www.sergiomcoach.com/topics/3-press-frances-con-mancuernas-tumbado-2/", photo:"fotos/press frances con mancuernas.png",
+      {name:"Press francés con mancuernas tumbado", series:"2", rep:"10-12", recp:"1,5’", rir:"1", muscle:"triceps", icon:"tricep", video:"https://www.sergiomcoach.com/topics/3-press-frances-con-mancuernas-tumbado-2/", photo:"fotos/press frances con mancuernas.png", photoWide:true,
         tips:["Busca aplastar tu bíceps contra tu antebrazo en cada repetición.","No es necesario bloquear del todo los codos, puedes mantener la tensión.","Controla la alineación de tus codos, que no se abran en exceso."]},
       {name:"Pec Fly", series:"2", rep:"12-16", recp:"1,5’", rir:"1", muscle:"pecho", icon:"pecfly", video:"https://www.sergiomcoach.com/topics/22-aperturas-con-mancuerna-en-banco-plano-3/", photo:"fotos/pec fly.png",
         tips:["La articulación del codo permanece fija, un error común es flexionar el bíceps en la fase concéntrica y extenderlos quitando tensión al pectoral en la excéntrica.","Realiza el gesto de abrazo centrándote en la parte alta del brazo (bíceps).","Lleva los codos lo más atrás posible, ampliando el ROM activo lo máximo."]},
@@ -729,7 +733,7 @@ function strengthCard(day, ex, idx, setsArr, noteVal, doneMap, recentSessions){
   }).join('');
   return `
     <div class="card ex-card card-strength ${isDone?'done':''}" data-key="${key}" data-ex-day="${day}">
-      <div class="ex-photo-wrap ex-photo-wrap--square">
+      <div class="ex-photo-wrap ${ex.photoWide ? 'ex-photo-wrap--wide' : 'ex-photo-wrap--square'}">
         <button class="thumb-btn ex-photo" type="button" data-name="${escapeAttr(ex.name)}" data-video="${escapeAttr(ex.video)}" data-series="${escapeAttr(ex.series)}" data-rep="${escapeAttr(ex.rep)}" data-recp="${escapeAttr(ex.recp || '')}" data-icon="${escapeAttr(ex.icon || '')}" data-photo="${escapeAttr(ex.photo || '')}" aria-label="Ver detalle de ${escapeAttr(ex.name)}">
           <div class="ex-photo-frame">${thumbHtml(ex)}</div>
           <span class="ex-play-hint">${playIcon()}</span>
