@@ -1151,7 +1151,8 @@ function dayLabelMap(substitutedDay){
 const PLAN_REMOVED = 'QUITAR';
 
 function weekPlanRowHtml(ex, labels, i){
-  const origin = labels.get(ex.day) || 'Entrenador (hoy)';
+  // The spread-out session isn't one of this week's 3 labeled days: name it by its own session.
+  const origin = labels.get(ex.day) || `${DATA[ex.day].label} · ${DATA[ex.day].sub}`;
   let right;
   if(ex.status === 'mismo'){
     right = `<span class="v" style="color:var(--ink-dim);">Se quita — mismo ejercicio que el entrenador</span>`;
