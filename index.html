@@ -1154,6 +1154,21 @@ function dayLabelMap(substitutedDay){
 
 const PLAN_REMOVED = 'QUITAR';
 
+// Per-day totals of the plan as it stands (dropdown changes included, before saving):
+// exercises and series, then series per muscle group.
+function weekPlanSumHtml(list, labels){
+  return [...labels.entries()].map(([d,label])=>{
+    const onDay = list.filter(r => r.status === 'queda' && r.assignedTo === d);
+    const series = onDay.reduce((sum,r)=>sum+r.series, 0);
+    const byMuscle = {};
+    onDay.forEach(r=>{ byMuscle[r.muscle] = (byMuscle[r.muscle]||0) + r.series; });
+    const muscles = Object.entries(byMuscle)
+      .sort((a,b)=>b[1]-a[1])
+      .map(([m,n])=>`${MUSCLES[m]||m} ${n}`).join(' · ');
+    return `<div class="prev-history"><b>${label}:</b> ${onDay.length} ejercicios · ${series} series<br>${muscles}</div>`;
+  }).join('');
+}
+
 function weekPlanRowHtml(ex, labels, i){
   // The spread-out session isn't one of this week's 3 labeled days: name it by its own session.
   const origin = labels.get(ex.day) || `${DATA[ex.day].label} · ${DATA[ex.day].sub}`;
@@ -1247,12 +1262,18 @@ async function renderEntrenador(token){
     const labels = dayLabelMap(savedPlan.substitutedDay);
     const stale = savedPlan.sig !== planSig(log.custom);
     resultEl.innerHTML = (stale ? '<div class="prev-history">Has añadido ejercicios después de calcular: pulsa Calcular otra vez para actualizar el reparto.</div>' : '')
+      + '<div id="plan-suma"></div>'
       + savedPlan.list.map((ex,i)=>weekPlanRowHtml(ex, labels, i)).join('')
       + '<button class="video-btn" type="button" id="btn-guardar-plan">Guardar cambios</button>';
 
     const edited = savedPlan.list.map(ex=>({ ...ex }));
+    const sumaEl = document.getElementById('plan-suma');
+    sumaEl.innerHTML = weekPlanSumHtml(edited, labels);
     resultEl.querySelectorAll('.plan-dest').forEach(sel=>{
-      sel.addEventListener('change', ()=>{ edited[Number(sel.dataset.i)].assignedTo = sel.value; });
+      sel.addEventListener('change', ()=>{
+        edited[Number(sel.dataset.i)].assignedTo = sel.value;
+        sumaEl.innerHTML = weekPlanSumHtml(edited, labels);
+      });
     });
     document.getElementById('btn-guardar-plan').addEventListener('click', async ()=>{
       const fresh = await getLog('ENTRENADOR', date);
