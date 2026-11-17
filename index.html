@@ -464,20 +464,21 @@ async function listAllLogs(){
   }
 }
 
-// There's only ever ONE trainer session at a time — found by day alone, not by
-// date. Its date is the last day an exercise was added to it (or the day it was
-// created/restarted), which is also what Historial/Informes show for it.
+// The trainer screen works on the most recent trainer session; older ones stay saved
+// so Historial/Informes keep showing them. Its date is the last day an exercise was
+// added to it (or the day it was created), which is also what Historial/Informes show.
 async function getEntrenadorSession(){
   const entries = (await listAllLogs()).filter(e => e.day === 'ENTRENADOR');
   return entries[0] || null;
 }
 
+// Returns false (and changes nothing) when there's already a session today: whatever
+// is added next goes into that same session instead of wiping it.
 async function startNewEntrenadorSession(){
   const session = await getEntrenadorSession();
-  if(session && session.date !== todayStr()){
-    await deleteLog('ENTRENADOR', session.date);
-  }
+  if(session && session.date === todayStr()) return false;
   await saveLog('ENTRENADOR', todayStr(), emptyLog());
+  return true;
 }
 
 const tabsEl = document.getElementById('tabs');
@@ -736,11 +737,16 @@ function addExerciseFormHtml(idPrefix){
       <div class="sets-grid" id="${idPrefix}-sets" style="margin-top:9px;"></div>
       <button class="video-btn" type="button" id="${idPrefix}-add-set" style="border-style:dashed;">+ Añadir serie</button>
       <button class="video-btn" type="button" id="${idPrefix}-save">Guardar ejercicio</button>
+      <div class="storage-note sync-error" id="${idPrefix}-msg" style="display:none;"></div>
     </div>
   `;
 }
 
-function wireAddExerciseForm(idPrefix, onSave){
+// What's typed in an "Añadir ejercicio" form but not saved yet, so a re-render of the
+// screen (ticking an exercise as done, Calcular…) doesn't wipe it.
+const addFormDrafts = {};
+
+function wireAddExerciseForm(idPrefix, onSave, draftKey = idPrefix){
   const catalog = exerciseCatalog();
   const byMuscle = new Map();
   catalog.forEach((muscle, name)=>{
@@ -751,7 +757,22 @@ function wireAddExerciseForm(idPrefix, onSave){
   const muscleEl = document.getElementById(`${idPrefix}-muscle`);
   const muscleListEl = document.getElementById(`${idPrefix}-muscle-list`);
   const setsEl = document.getElementById(`${idPrefix}-sets`);
-  let setRows = [{ kg:'', reps:'' }];
+  const msgEl = document.getElementById(`${idPrefix}-msg`);
+  const draft = addFormDrafts[draftKey];
+  let setRows = draft ? draft.setRows : [{ kg:'', reps:'' }];
+  if(draft){
+    nameEl.value = draft.name;
+    muscleEl.value = draft.muscle;
+    muscleEl.disabled = draft.muscleLocked;
+  }
+
+  function saveDraft(){
+    addFormDrafts[draftKey] = { name: nameEl.value, muscle: muscleEl.value, muscleLocked: muscleEl.disabled, setRows };
+  }
+  function showMsg(text){
+    msgEl.textContent = text;
+    msgEl.style.display = text ? '' : 'none';
+  }
 
   function renderMuscleList(){
     const names = byMuscle.get(muscleEl.value) || [];
@@ -761,6 +782,8 @@ function wireAddExerciseForm(idPrefix, onSave){
         nameEl.value = btn.dataset.name;
         muscleEl.value = catalog.get(btn.dataset.name);
         muscleEl.disabled = true;
+        showMsg('');
+        saveDraft();
       });
     });
   }
@@ -769,7 +792,8 @@ function wireAddExerciseForm(idPrefix, onSave){
     muscleListEl.style.display = nameEl.value.trim() ? 'none' : 'flex';
   }
   renderMuscleList();
-  muscleEl.addEventListener('change', renderMuscleList);
+  syncMuscleListVisibility();
+  muscleEl.addEventListener('change', ()=>{ renderMuscleList(); saveDraft(); });
 
   function renderSetRows(){
     setsEl.innerHTML = setRows.map((s,i) => `
@@ -782,11 +806,15 @@ function wireAddExerciseForm(idPrefix, onSave){
         <span class="unit">reps</span>
       </div>
     `).join('');
+    // Updated on every keystroke, not on leaving the box: tapping "Guardar" straight after
+    // typing the last number must still count it.
     setsEl.querySelectorAll('input').forEach(inp=>{
-      inp.addEventListener('change', ()=>{
+      inp.addEventListener('input', ()=>{
         const i = Number(inp.dataset.i);
         const field = inp.dataset.field;
         setRows[i][field] = field==='kg' ? normKg(inp.value) : inp.value;
+        showMsg('');
+        saveDraft();
       });
     });
   }
@@ -797,18 +825,23 @@ function wireAddExerciseForm(idPrefix, onSave){
     if(match){ muscleEl.value = catalog.get(match); muscleEl.disabled = true; }
     else{ muscleEl.disabled = false; }
     syncMuscleListVisibility();
+    showMsg('');
+    saveDraft();
   });
 
   document.getElementById(`${idPrefix}-add-set`).addEventListener('click', ()=>{
     setRows.push({ kg:'', reps:'' });
     renderSetRows();
+    saveDraft();
   });
 
   document.getElementById(`${idPrefix}-save`).addEventListener('click', ()=>{
     const name = nameEl.value.trim();
-    if(!name) return;
+    if(!name){ showMsg('Escribe el nombre del ejercicio.'); return; }
     const sets = setRows.filter(s=>s.kg || s.reps);
-    if(!sets.length) return;
+    if(!sets.length){ showMsg('Apunta al menos una serie.'); return; }
+    showMsg('');
+    delete addFormDrafts[draftKey];
     onSave({ name, muscle: muscleEl.value, sets });
     nameEl.value = '';
     muscleEl.disabled = false;
@@ -975,6 +1008,7 @@ async function renderEntrenador(token){
     <div class="day-head"><h2>Entrenador</h2><span class="progress">${date}</span></div>
     ${syncError ? `<div class="storage-note sync-error">${syncError}</div>` : ''}
     <button class="video-btn" type="button" id="btn-nueva-sesion" style="border-style:dashed;">Nueva sesión</button>
+    <div class="prev-history" id="nueva-sesion-msg" style="display:none;">Ya tienes una sesión hoy: lo que añadas se suma a ella.</div>
     <div class="card">
       ${rows || '<div class="prev-history">Aún no has añadido nada en esta sesión.</div>'}
     </div>
@@ -988,7 +1022,10 @@ async function renderEntrenador(token){
   `;
 
   document.getElementById('btn-nueva-sesion').addEventListener('click', async ()=>{
-    await startNewEntrenadorSession();
+    if(!(await startNewEntrenadorSession())){
+      document.getElementById('nueva-sesion-msg').style.display = '';
+      return;
+    }
     cachedSubstitutedDay = null;
     await renderMain();
   });
@@ -1207,7 +1244,7 @@ async function renderMain(){
     fresh.custom.push(entry);
     await saveLog(day, date, fresh);
     await renderMain();
-  });
+  }, `dayadd-${day}-${date}`);
 }
 
 // Sets as "40kg×6 · 40kg×6", skipping empty ones — same format for routine,
