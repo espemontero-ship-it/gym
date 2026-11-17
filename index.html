@@ -1041,10 +1041,16 @@ const NOT_SAME_DAY = [
 // Two names count as the same exercise when they only differ in case, accents,
 // punctuation or little words ("Sentadilla Multipower" = "Sentadilla en multipower").
 const NAME_FILLER_WORDS = new Set(['en','de','del','con','al','a','el','la','los','las','y']);
+// Different names for the same exercise (e.g. English vs Spanish), on the cleaned-up name.
+const SAME_EXERCISE = [
+  { pattern: /\b(leg extensions?|extension(es)? cuadriceps)\b/, key: 'leg extension' }
+];
 function matchName(name){
-  return String(name||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
+  const clean = String(name||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
     .replace(/[^a-z0-9ºª]+/g,' ').trim().split(' ')
     .filter(w => w && !NAME_FILLER_WORDS.has(w)).join(' ');
+  const alias = SAME_EXERCISE.find(a => a.pattern.test(clean));
+  return alias ? alias.key : clean;
 }
 
 function computeWeekPlan(trainerCustom){
@@ -1076,23 +1082,21 @@ function computeWeekPlan(trainerCustom){
   const removalsByDay = {};
   DAY_ORDER.forEach(d=>{ removalsByDay[d] = 0; });
   results.filter(r=>r.status==='mismo').forEach(r=>{ removalsByDay[r.day]++; });
-  const hasAnyRemoval = Object.values(removalsByDay).some(n=>n>0);
-  let substitutedDay;
-  if(hasAnyRemoval){
-    substitutedDay = DAY_ORDER.reduce((best,d)=> removalsByDay[d] > removalsByDay[best] ? d : best, DAY_ORDER[0]);
-  } else {
-    // Nothing the trainer did matches the routine by name: the week still has only 3 days
-    // of your own, so the day whose muscle groups overlap most with the trainer's session
-    // is the one whose exercises get spread over the other 3 (none is lost).
-    const trainerSeries = {};
-    trainerCustom.forEach(e=>{ trainerSeries[e.muscle] = (trainerSeries[e.muscle]||0) + Math.max((e.sets||[]).length, 1); });
-    const overlap = d => {
-      const daySeries = {};
-      pool.filter(p=>p.day===d).forEach(p=>{ daySeries[p.muscle] = (daySeries[p.muscle]||0) + p.series; });
-      return Object.entries(trainerSeries).reduce((sum,[m,n])=> sum + Math.min(n, daySeries[m]||0), 0);
-    };
-    substitutedDay = DAY_ORDER.reduce((best,d)=> overlap(d) > overlap(best) ? d : best, DAY_ORDER[0]);
-  }
+  // The week has only 3 days of your own, so one day's exercises get spread over the
+  // other 3 (none is lost): the day with most exercises already done with the trainer.
+  // On a tie — or when nothing matches by name — the day whose muscle groups overlap
+  // most with the trainer's session.
+  const trainerSeries = {};
+  trainerCustom.forEach(e=>{ trainerSeries[e.muscle] = (trainerSeries[e.muscle]||0) + Math.max((e.sets||[]).length, 1); });
+  const overlap = d => {
+    const daySeries = {};
+    pool.filter(p=>p.day===d).forEach(p=>{ daySeries[p.muscle] = (daySeries[p.muscle]||0) + p.series; });
+    return Object.entries(trainerSeries).reduce((sum,[m,n])=> sum + Math.min(n, daySeries[m]||0), 0);
+  };
+  const better = (d, best) => removalsByDay[d] !== removalsByDay[best]
+    ? removalsByDay[d] > removalsByDay[best]
+    : overlap(d) > overlap(best);
+  const substitutedDay = DAY_ORDER.reduce((best,d)=> better(d, best) ? d : best, DAY_ORDER[0]);
   const otherDays = DAY_ORDER.filter(d=>d!==substitutedDay);
 
   // The 3 other days stay exactly as they are — their survivors just keep their own day.
