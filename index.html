@@ -801,22 +801,34 @@ function wireTipsToggles(root){
   });
 }
 
+// Two routine exercises are the same one when their names match (see matchName) or they
+// use the same trainer video — names changed between blocks for the same movement.
+function sameExercise(a, b){
+  return matchName(a.name) === matchName(b.name) || (!!a.video && a.video === b.video);
+}
+
+// "Antes": the last sessions of the same exercise wherever it was done — this block,
+// Bloque 1, the trainer or a free extra — newest first, today's left out.
 async function getRecentSessions(day, excludeDate, limit=3){
-  const logs = (await listAllLogs())
-    .filter(l => l.day === day && l.date !== excludeDate)
-    .sort((a,b) => b.date.localeCompare(a.date));
+  const logs = (await listAllLogs()).filter(l => l.date !== excludeDate);
+  const validSets = arr => (arr || []).filter(s => s && (s.kg || s.reps)).map(s => ({ kg: s.kg, reps: s.reps }));
   const result = {};
   DATA[day].strength.forEach((ex, idx)=>{
+    const sources = ALL_DAY_ORDER.flatMap(d2 => DATA[d2].strength
+      .map((e2, i2) => ({ day: d2, idx: i2, e2 }))
+      .filter(r => sameExercise(ex, r.e2)));
     const sessions = [];
-    for(const l of logs){
-      if(sessions.length >= limit) break;
-      const arr = (l.sets && l.sets[idx]) || [];
-      const valid = arr.filter(s => s && (s.kg || s.reps));
-      if(valid.length){
-        sessions.push({ date: l.date, sets: valid.map(s => ({ kg: s.kg, reps: s.reps })) });
-      }
-    }
-    result[idx] = sessions;
+    logs.forEach(l=>{
+      sources.filter(r => r.day === l.day).forEach(r=>{
+        const sets = validSets(l.sets && l.sets[r.idx]);
+        if(sets.length) sessions.push({ date: l.date, sets });
+      });
+      (l.custom || []).filter(c => matchName(c.name) === matchName(ex.name)).forEach(c=>{
+        const sets = validSets(c.sets);
+        if(sets.length) sessions.push({ date: l.date, sets });
+      });
+    });
+    result[idx] = sessions.sort((a,b) => b.date.localeCompare(a.date)).slice(0, limit);
   });
   return result;
 }
